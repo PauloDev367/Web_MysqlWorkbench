@@ -809,10 +809,42 @@
             appendOutput('File', `Arquivo salvo localmente: ${handleName}`);
         };
 
-        const renderSchemas = async () => {
-            const response = await fetch(`/api/connections/${connectionId}/schemas`);
-            const payload = await parseResponse(response);
-            const schemas = Array.isArray(payload.data) ? payload.data : [];
+        const schemaCacheKey = `wb-schema-tree-cache-${connectionId}`;
+        const schemaUiKey = `wb-schema-tree-ui-${connectionId}`;
+
+        const readJsonStorage = (key, fallback) => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                return JSON.parse(raw);
+            } catch (error) {
+                return fallback;
+            }
+        };
+
+        const writeJsonStorage = (key, value) => {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (error) {
+                // Ignore storage quota / private mode issues
+            }
+        };
+
+        const getUiState = () => readJsonStorage(schemaUiKey, { expandedNodes: [], activeSchema: '' });
+
+        const saveUiState = () => {
+            const expandedNodes = Array.from(schemaTree.querySelectorAll('details[data-node-key]'))
+                .filter((node) => node.open)
+                .map((node) => node.getAttribute('data-node-key'))
+                .filter((value) => Boolean(value));
+
+            writeJsonStorage(schemaUiKey, {
+                expandedNodes,
+                activeSchema,
+            });
+        };
+
+        const renderSchemaTree = (schemas) => {
             schemaCatalog = {
                 schemas: schemas.map((schema) => String(schema.name || '')),
                 tables: schemas.flatMap((schema) => (schema.tables || []).map((table) => String(table.name || ''))),
@@ -821,27 +853,35 @@
                 procedures: schemas.flatMap((schema) => (schema.procedures || []).map((procedure) => String(procedure || ''))),
                 functions: schemas.flatMap((schema) => (schema.functions || []).map((fn) => String(fn || ''))),
             };
+
             if (!schemas.length) {
                 schemaTree.innerHTML = '<li>Nenhum schema encontrado.</li>';
                 return;
             }
 
+            const uiState = getUiState();
+            const expanded = new Set(Array.isArray(uiState.expandedNodes) ? uiState.expandedNodes : []);
+            if (!activeSchema && typeof uiState.activeSchema === 'string') {
+                activeSchema = uiState.activeSchema;
+            }
+            const isOpen = (nodeKey, defaultOpen = false) => (expanded.has(nodeKey) || defaultOpen ? 'open' : '');
+
             schemaTree.innerHTML = schemas.map((schema) => `
                 <li>
-                    <details>
-                        <summary class="wb-schema-item" data-schema-name="${schema.name}">${schema.name}</summary>
+                    <details data-node-key="schema:${schema.name}" ${isOpen(`schema:${schema.name}`)}>
+                        <summary class="wb-schema-item ${activeSchema === schema.name ? 'is-selected-schema' : ''}" data-schema-name="${schema.name}">${schema.name}</summary>
                         <ul>
                             <li>
-                                <details open>
+                                <details data-node-key="schema:${schema.name}:tables" ${isOpen(`schema:${schema.name}:tables`, true)}>
                                     <summary>Tables</summary>
                                     <ul>
                                         ${(schema.tables || []).map((table) => `
                                             <li>
-                                                <details>
+                                                <details data-node-key="schema:${schema.name}:table:${table.name}" ${isOpen(`schema:${schema.name}:table:${table.name}`)}>
                                                     <summary class="wb-table-item" data-schema-name="${schema.name}" data-table-name="${table.name}" data-table-columns="${encodeURIComponent(JSON.stringify(table.columns || []))}">${table.name}</summary>
                                                     <ul>
                                                         <li>
-                                                            <details open>
+                                                            <details data-node-key="schema:${schema.name}:table:${table.name}:columns" ${isOpen(`schema:${schema.name}:table:${table.name}:columns`, true)}>
                                                                 <summary>Columns</summary>
                                                                 <ul>
                                                                     ${(table.columns || []).map((column) => `<li>${column}</li>`).join('') || '<li>(vazio)</li>'}
@@ -856,7 +896,7 @@
                                 </details>
                             </li>
                             <li>
-                                <details>
+                                <details data-node-key="schema:${schema.name}:views" ${isOpen(`schema:${schema.name}:views`)}>
                                     <summary>Views</summary>
                                     <ul>
                                         ${(schema.views || []).map((view) => `<li>${view}</li>`).join('') || '<li>(vazio)</li>'}
@@ -864,7 +904,7 @@
                                 </details>
                             </li>
                             <li>
-                                <details>
+                                <details data-node-key="schema:${schema.name}:procedures" ${isOpen(`schema:${schema.name}:procedures`)}>
                                     <summary>Stored Procedures</summary>
                                     <ul>
                                         ${(schema.procedures || []).map((procedure) => `<li>${procedure}</li>`).join('') || '<li>(vazio)</li>'}
@@ -872,7 +912,7 @@
                                 </details>
                             </li>
                             <li>
-                                <details>
+                                <details data-node-key="schema:${schema.name}:functions" ${isOpen(`schema:${schema.name}:functions`)}>
                                     <summary>Functions</summary>
                                     <ul>
                                         ${(schema.functions || []).map((fn) => `<li>${fn}</li>`).join('') || '<li>(vazio)</li>'}
@@ -895,6 +935,7 @@
                     activeSchema = schemaName;
                     schemaTree.querySelectorAll('.wb-schema-item').forEach((item) => item.classList.remove('is-selected-schema'));
                     element.classList.add('is-selected-schema');
+                    saveUiState();
                     appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
                 });
             });
@@ -919,7 +960,29 @@
                     showContextMenu(event.clientX, event.clientY, schemaName, tableName, columns);
                 });
             });
+
+            schemaTree.querySelectorAll('details[data-node-key]').forEach((node) => {
+                node.addEventListener('toggle', saveUiState);
+            });
+
             hideConnectionError();
+        };
+
+        const renderSchemas = async (options = {}) => {
+            const force = Boolean(options.force);
+            if (!force) {
+                const cachedSchemas = readJsonStorage(schemaCacheKey, null);
+                if (Array.isArray(cachedSchemas) && cachedSchemas.length) {
+                    renderSchemaTree(cachedSchemas);
+                    return;
+                }
+            }
+
+            const response = await fetch(`/api/connections/${connectionId}/schemas`);
+            const payload = await parseResponse(response);
+            const schemas = Array.isArray(payload.data) ? payload.data : [];
+            writeJsonStorage(schemaCacheKey, schemas);
+            renderSchemaTree(schemas);
         };
 
         contextMenu.addEventListener('click', async (event) => {
@@ -1005,7 +1068,7 @@
                     }
 
                     await executeSql('Table', `DROP TABLE ${qualifiedTable};`);
-                    await renderSchemas();
+                    await renderSchemas({ force: true });
                     appendOutput('Table', `Tabela removida: ${schemaName}.${tableName}.`);
                     return;
                 }
@@ -1023,7 +1086,7 @@
                 }
 
                 if (action === 'table.refresh-all') {
-                    await renderSchemas();
+                    await renderSchemas({ force: true });
                     appendOutput('Table', 'Schemas atualizados.');
                 }
             } catch (error) {
@@ -1305,7 +1368,7 @@
                     await runAll();
                     break;
                 case 'database.refresh-schemas':
-                    await renderSchemas();
+                    await renderSchemas({ force: true });
                     appendOutput('Database', 'Schemas atualizados.');
                     break;
                 case 'database.clear-active-schema':
