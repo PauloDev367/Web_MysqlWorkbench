@@ -339,6 +339,7 @@
         ];
         let activeTab = 0;
         let activeSchema = '';
+        let tableContextMenuTarget = null;
 
         const escapeHtml = (value) => value
             .replace(/&/g, '&amp;')
@@ -471,14 +472,78 @@
             connectionErrorBanner.classList.add('wb-error-banner--hidden');
         };
 
-        const executeSql = async (action, sql) => {
+        const quoteIdentifier = (value) => `\`${String(value).replace(/`/g, '``')}\``;
+
+        const copyToClipboard = async (text) => {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+
+            const helper = document.createElement('textarea');
+            helper.value = text;
+            helper.style.position = 'fixed';
+            helper.style.opacity = '0';
+            document.body.appendChild(helper);
+            helper.focus();
+            helper.select();
+            document.execCommand('copy');
+            helper.remove();
+        };
+
+        const convertRowsToCsv = (columns, rows) => {
+            const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const header = columns.map((column) => escape(column)).join(',');
+            const body = rows.map((row) => columns.map((column) => escape(row[column])).join(',')).join('\n');
+            return `${header}\n${body}`;
+        };
+
+        const createContextMenu = () => {
+            const menu = document.createElement('div');
+            menu.className = 'wb-context-menu wb-context-menu--hidden';
+            menu.innerHTML = `
+                <button type="button" data-table-action="table.search-records">Buscar registros</button>
+                <button type="button" data-table-action="table.copy-crud">Copiar CRUD para clipboard</button>
+                <button type="button" data-table-action="table.export-data">Table data export</button>
+                <button type="button" data-table-action="table.drop">Drop table</button>
+                <button type="button" data-table-action="table.truncate">Truncate table</button>
+                <button type="button" data-table-action="table.refresh-all">Refresh all</button>
+            `;
+            document.body.appendChild(menu);
+            return menu;
+        };
+
+        const contextMenu = createContextMenu();
+
+        const hideContextMenu = () => {
+            contextMenu.classList.add('wb-context-menu--hidden');
+            tableContextMenuTarget = null;
+        };
+
+        const showContextMenu = (x, y, schemaName, tableName, columns) => {
+            tableContextMenuTarget = {
+                schemaName,
+                tableName,
+                columns: Array.isArray(columns) ? columns : [],
+            };
+
+            contextMenu.style.left = `${x}px`;
+            contextMenu.style.top = `${y}px`;
+            contextMenu.classList.remove('wb-context-menu--hidden');
+        };
+
+        const executeSqlRaw = async (sql) => {
             const response = await fetch('/api/sql/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ connection_id: connectionId, sql, active_schema: activeSchema }),
             });
 
-            const payload = await parseResponse(response);
+            return parseResponse(response);
+        };
+
+        const executeSql = async (action, sql) => {
+            const payload = await executeSqlRaw(sql);
             hideConnectionError();
             renderResultGrid(payload.columns || [], payload.rows || []);
             appendOutput(action, `${payload.message} (${payload.duration_ms} ms)`);
@@ -505,7 +570,7 @@
                                         ${(schema.tables || []).map((table) => `
                                             <li>
                                                 <details>
-                                                    <summary>${table.name}</summary>
+                                                    <summary class="wb-table-item" data-schema-name="${schema.name}" data-table-name="${table.name}" data-table-columns="${encodeURIComponent(JSON.stringify(table.columns || []))}">${table.name}</summary>
                                                     <ul>
                                                         <li>
                                                             <details open>
@@ -565,8 +630,136 @@
                     appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
                 });
             });
+
+            schemaTree.querySelectorAll('.wb-table-item').forEach((element) => {
+                element.addEventListener('contextmenu', (event) => {
+                    event.preventDefault();
+                    const tableName = element.getAttribute('data-table-name') || '';
+                    const schemaName = element.getAttribute('data-schema-name') || '';
+                    const rawColumns = decodeURIComponent(element.getAttribute('data-table-columns') || '%5B%5D');
+                    let columns = [];
+                    try {
+                        columns = JSON.parse(rawColumns);
+                    } catch (err) {
+                        columns = [];
+                    }
+
+                    if (!tableName || !schemaName) {
+                        return;
+                    }
+
+                    showContextMenu(event.clientX, event.clientY, schemaName, tableName, columns);
+                });
+            });
             hideConnectionError();
         };
+
+        contextMenu.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            const action = target.getAttribute('data-table-action');
+            if (!action || !tableContextMenuTarget) {
+                return;
+            }
+
+            const { schemaName, tableName, columns } = tableContextMenuTarget;
+            const qualifiedTable = `${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`;
+
+            hideContextMenu();
+
+            try {
+                if (action === 'table.search-records') {
+                    await executeSql('Table', `SELECT * FROM ${qualifiedTable} LIMIT 200;`);
+                    return;
+                }
+
+                if (action === 'table.copy-crud') {
+                    const cols = columns.length ? columns : ['id'];
+                    const columnList = cols.map((col) => quoteIdentifier(col)).join(', ');
+                    const insertValues = cols.map(() => '?').join(', ');
+                    const updateSet = cols.map((col) => `${quoteIdentifier(col)} = ?`).join(', ');
+                    const template = [
+                        `-- CRUD template for ${qualifiedTable}`,
+                        `SELECT ${columnList} FROM ${qualifiedTable} LIMIT 200;`,
+                        `INSERT INTO ${qualifiedTable} (${columnList}) VALUES (${insertValues});`,
+                        `UPDATE ${qualifiedTable} SET ${updateSet} WHERE id = ?;`,
+                        `DELETE FROM ${qualifiedTable} WHERE id = ?;`,
+                    ].join('\n');
+                    await copyToClipboard(template);
+                    appendOutput('Table', `CRUD copiado para clipboard (${schemaName}.${tableName}).`);
+                    return;
+                }
+
+                if (action === 'table.export-data') {
+                    const payload = await executeSqlRaw(`SELECT * FROM ${qualifiedTable};`);
+                    const exportColumns = Array.isArray(payload.columns) ? payload.columns : [];
+                    const exportRows = Array.isArray(payload.rows) ? payload.rows : [];
+                    if (!exportColumns.length || !exportRows.length) {
+                        appendOutput('Table Export', `Sem dados para exportar em ${schemaName}.${tableName}.`);
+                        return;
+                    }
+
+                    const csv = convertRowsToCsv(exportColumns, exportRows);
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${schemaName}_${tableName}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(link.href);
+                    appendOutput('Table Export', `Export concluído: ${schemaName}_${tableName}.csv`);
+                    return;
+                }
+
+                if (action === 'table.drop') {
+                    const confirmed = window.confirm(`Confirma DROP TABLE ${schemaName}.${tableName}? Esta ação é irreversível.`);
+                    if (!confirmed) {
+                        appendOutput('Table', 'Drop table cancelado.');
+                        return;
+                    }
+
+                    await executeSql('Table', `DROP TABLE ${qualifiedTable};`);
+                    await renderSchemas();
+                    appendOutput('Table', `Tabela removida: ${schemaName}.${tableName}.`);
+                    return;
+                }
+
+                if (action === 'table.truncate') {
+                    const confirmed = window.confirm(`Confirma TRUNCATE TABLE ${schemaName}.${tableName}?`);
+                    if (!confirmed) {
+                        appendOutput('Table', 'Truncate table cancelado.');
+                        return;
+                    }
+
+                    await executeSql('Table', `TRUNCATE TABLE ${qualifiedTable};`);
+                    appendOutput('Table', `Tabela truncada: ${schemaName}.${tableName}.`);
+                    return;
+                }
+
+                if (action === 'table.refresh-all') {
+                    await renderSchemas();
+                    appendOutput('Table', 'Schemas atualizados.');
+                }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Falha na ação da tabela.';
+                showConnectionError(`Falha ao executar ação na tabela: ${message}`);
+                appendOutput('Table', message);
+            }
+        });
+
+        document.addEventListener('click', (event) => {
+            if (event.target instanceof Node && contextMenu.contains(event.target)) {
+                return;
+            }
+            hideContextMenu();
+        });
+
+        window.addEventListener('resize', hideContextMenu);
+        window.addEventListener('scroll', hideContextMenu);
 
         const runSelected = async () => {
             const start = sqlEditor.selectionStart;

@@ -316,6 +316,34 @@ html, body {
     color: #7dc4ff;
     font-weight: 600;
 }
+.wb-table-item:hover {
+    color: #9bd3ff;
+}
+.wb-context-menu {
+    position: fixed;
+    z-index: 200;
+    min-width: 220px;
+    background: #2f3441;
+    border: 1px solid #4a5161;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+}
+.wb-context-menu--hidden {
+    display: none;
+}
+.wb-context-menu button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #e6eaf2;
+    text-align: left;
+    padding: 7px 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.wb-context-menu button:hover {
+    background: #44506a;
+}
 
 .wb-editor-main {
     display: grid;
