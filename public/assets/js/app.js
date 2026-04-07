@@ -576,6 +576,58 @@
         runAllBtn.addEventListener('click', runAll);
 
         sqlEditor.addEventListener('keydown', async (event) => {
+            if (event.key === 'Tab' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+
+                const value = sqlEditor.value;
+                const start = sqlEditor.selectionStart;
+                const end = sqlEditor.selectionEnd;
+
+                if (start === end) {
+                    const tabChar = '    ';
+                    sqlEditor.value = value.slice(0, start) + tabChar + value.slice(end);
+                    sqlEditor.selectionStart = start + tabChar.length;
+                    sqlEditor.selectionEnd = start + tabChar.length;
+                } else {
+                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    const selectedBlock = value.slice(lineStart, end);
+                    const lines = selectedBlock.split('\n');
+
+                    let replaced = '';
+                    let addedChars = 0;
+                    let removedChars = 0;
+
+                    if (event.shiftKey) {
+                        const outdented = lines.map((line) => {
+                            if (line.startsWith('    ')) {
+                                removedChars += 4;
+                                return line.slice(4);
+                            }
+                            if (line.startsWith('\t')) {
+                                removedChars += 1;
+                                return line.slice(1);
+                            }
+                            return line;
+                        });
+                        replaced = outdented.join('\n');
+                    } else {
+                        const indented = lines.map((line) => {
+                            addedChars += 4;
+                            return `    ${line}`;
+                        });
+                        replaced = indented.join('\n');
+                    }
+
+                    sqlEditor.value = value.slice(0, lineStart) + replaced + value.slice(end);
+                    sqlEditor.selectionStart = lineStart;
+                    sqlEditor.selectionEnd = end + addedChars - removedChars;
+                }
+
+                tabState[activeTab].sql = sqlEditor.value;
+                refreshSqlHighlight();
+                return;
+            }
+
             if (!(event.ctrlKey && event.key === 'Enter')) {
                 return;
             }
