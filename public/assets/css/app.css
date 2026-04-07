@@ -197,7 +197,11 @@ html, body {
     flex-direction: column;
 }
 .wb-nav--hidden {
-    display: none;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border-right: 0;
+    visibility: hidden;
 }
 
 .wb-nav__tabs {
@@ -227,6 +231,7 @@ html, body {
     display: grid;
     grid-template-rows: 34px 38px 1fr 170px 165px;
     min-height: 0;
+    grid-column: 2;
 }
 
 .wb-query-tabbar {
