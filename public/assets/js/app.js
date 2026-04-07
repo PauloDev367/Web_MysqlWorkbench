@@ -333,7 +333,7 @@
 
             schemaTree.innerHTML = schemas.map((schema) => `
                 <li>
-                    <details open>
+                    <details>
                         <summary class="wb-schema-item" data-schema-name="${schema.name}">${schema.name}</summary>
                         <ul>
                             <li>
