@@ -98,7 +98,10 @@
             </div>
 
             <div class="wb-editor-area">
-                <textarea id="sqlEditor" spellcheck="false">SELECT * FROM users LIMIT 50;</textarea>
+                <div class="wb-sql-editor-wrap">
+                    <pre id="sqlHighlight" aria-hidden="true"></pre>
+                    <textarea id="sqlEditor" spellcheck="false">SELECT * FROM users LIMIT 50;</textarea>
+                </div>
             </div>
 
             <div class="wb-result-grid">

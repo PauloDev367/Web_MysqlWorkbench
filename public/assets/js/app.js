@@ -167,12 +167,13 @@
         const schemaTree = document.getElementById('schemaTree');
         const resultGridHead = document.getElementById('resultGridHead');
         const resultGridRows = document.getElementById('resultGridRows');
+        const sqlHighlight = document.getElementById('sqlHighlight');
         const queryTabs = document.getElementById('queryTabs');
         const newTabBtn = document.getElementById('newTabBtn');
         const closeTabBtn = document.getElementById('closeTabBtn');
         const sqlFileInput = document.getElementById('sqlFileInput');
 
-        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
+        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !sqlHighlight || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
             return;
         }
 
@@ -215,6 +216,28 @@
         let activeTab = 0;
         let activeSchema = '';
 
+        const escapeHtml = (value) => value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        const highlightSql = (sql) => {
+            let html = escapeHtml(sql);
+            html = html.replace(/(--.*$)/gm, '<span class="sql-token-comment">$1</span>');
+            html = html.replace(/('([^'\\\\]|\\\\.)*')/g, '<span class="sql-token-string">$1</span>');
+            html = html.replace(/\b(\d+)\b/g, '<span class="sql-token-number">$1</span>');
+            html = html.replace(/\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|BY|ORDER|LIMIT|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|ALTER|DROP|TABLE|VIEW|PROCEDURE|FUNCTION|USE|AS|AND|OR|NOT|NULL|DISTINCT|HAVING)\b/gi, '<span class="sql-token-keyword">$1</span>');
+
+            return html;
+        };
+
+        const refreshSqlHighlight = () => {
+            const sql = sqlEditor.value || ' ';
+            sqlHighlight.innerHTML = highlightSql(sql);
+            sqlHighlight.scrollTop = sqlEditor.scrollTop;
+            sqlHighlight.scrollLeft = sqlEditor.scrollLeft;
+        };
+
         const renderTabs = () => {
             queryTabs.innerHTML = tabState.map((tab, index) => {
                 const activeClass = index === activeTab ? 'is-active' : '';
@@ -232,6 +255,7 @@
                     tabState[activeTab].sql = sqlEditor.value;
                     activeTab = targetIndex;
                     sqlEditor.value = tabState[activeTab].sql;
+                    refreshSqlHighlight();
                     renderTabs();
                 });
 
@@ -266,6 +290,7 @@
             tabState.push({ title: `Query ${nextIndex}`, sql: '' });
             activeTab = tabState.length - 1;
             sqlEditor.value = '';
+            refreshSqlHighlight();
             renderTabs();
             appendOutput('Tabs', `Nova aba Query ${nextIndex} criada.`);
         };
@@ -279,6 +304,7 @@
             tabState.splice(activeTab, 1);
             activeTab = Math.max(0, activeTab - 1);
             sqlEditor.value = tabState[activeTab].sql;
+            refreshSqlHighlight();
             renderTabs();
             appendOutput('Tabs', 'Aba fechada.');
         };
@@ -303,6 +329,7 @@
             }
 
             sqlEditor.value = tabState[activeTab].sql;
+            refreshSqlHighlight();
             renderTabs();
             appendOutput('Tabs', 'Aba fechada.');
         };
@@ -521,6 +548,7 @@
                 case 'edit.clear-editor':
                     sqlEditor.value = '';
                     tabState[activeTab].sql = '';
+                    refreshSqlHighlight();
                     appendOutput('Edit', 'Editor limpo.');
                     break;
                 case 'view.toggle-schemas':
@@ -582,9 +610,20 @@
             sqlEditor.value = content;
             tabState[activeTab].sql = content;
             tabState[activeTab].title = file.name.replace(/\.(sql|txt)$/i, '') || tabState[activeTab].title;
+            refreshSqlHighlight();
             renderTabs();
             appendOutput('File', `Script ${file.name} carregado.`);
             sqlFileInput.value = '';
+        });
+
+        sqlEditor.addEventListener('input', () => {
+            tabState[activeTab].sql = sqlEditor.value;
+            refreshSqlHighlight();
+        });
+
+        sqlEditor.addEventListener('scroll', () => {
+            sqlHighlight.scrollTop = sqlEditor.scrollTop;
+            sqlHighlight.scrollLeft = sqlEditor.scrollLeft;
         });
 
         renderSchemas().catch((error) => {
@@ -592,6 +631,7 @@
             appendOutput('Load Schemas', message);
         });
         renderTabs();
+        refreshSqlHighlight();
     };
 
     setupWelcomeScreen();
