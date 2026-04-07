@@ -4,8 +4,21 @@ declare(strict_types=1);
 
 final class ConnectionRepository
 {
-    public function __construct(private PDO $pdo)
+    private string $storagePath;
+
+    public function __construct()
     {
+        $basePath = dirname(__DIR__, 2);
+        $storageDir = $basePath . '/storage/database';
+        $this->storagePath = $storageDir . '/connections.json';
+
+        if (!is_dir($storageDir)) {
+            mkdir($storageDir, 0775, true);
+        }
+
+        if (!file_exists($this->storagePath)) {
+            file_put_contents($this->storagePath, json_encode([]));
+        }
     }
 
     /**
@@ -13,13 +26,16 @@ final class ConnectionRepository
      */
     public function all(): array
     {
-        $stmt = $this->pdo->query(
-            'SELECT id, name, host, port, username, default_schema, created_at, updated_at
-             FROM connections
-             ORDER BY name ASC'
+        $rows = $this->readAll();
+        usort(
+            $rows,
+            static fn (array $a, array $b): int => strcmp((string) $a['name'], (string) $b['name'])
         );
 
-        return $stmt->fetchAll();
+        return array_map(function (array $row): array {
+            unset($row['password_encrypted']);
+            return $row;
+        }, $rows);
     }
 
     /**
@@ -27,33 +43,14 @@ final class ConnectionRepository
      */
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, name, host, port, username, password_encrypted, default_schema, created_at, updated_at
-             FROM connections
-             WHERE id = :id
-             LIMIT 1'
-        );
-        $stmt->execute(['id' => $id]);
-        $row = $stmt->fetch();
+        $rows = $this->readAll();
+        foreach ($rows as $row) {
+            if ((int) $row['id'] === $id) {
+                return $row;
+            }
+        }
 
-        return is_array($row) ? $row : null;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    public function findPublic(int $id): ?array
-    {
-        $stmt = $this->pdo->prepare(
-            'SELECT id, name, host, port, username, default_schema, created_at, updated_at
-             FROM connections
-             WHERE id = :id
-             LIMIT 1'
-        );
-        $stmt->execute(['id' => $id]);
-        $row = $stmt->fetch();
-
-        return is_array($row) ? $row : null;
+        return null;
     }
 
     /**
@@ -61,13 +58,17 @@ final class ConnectionRepository
      */
     public function create(array $data): int
     {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO connections (name, host, port, username, password_encrypted, default_schema, created_at, updated_at)
-             VALUES (:name, :host, :port, :username, :password_encrypted, :default_schema, :created_at, :updated_at)'
-        );
+        $rows = $this->readAll();
+        foreach ($rows as $row) {
+            if (mb_strtolower((string) $row['name']) === mb_strtolower((string) $data['name'])) {
+                throw new RuntimeException('Já existe uma conexão com este nome.');
+            }
+        }
 
+        $newId = $this->nextId($rows);
         $now = date('c');
-        $stmt->execute([
+        $rows[] = [
+            'id' => $newId,
             'name' => $data['name'],
             'host' => $data['host'],
             'port' => (int) $data['port'],
@@ -76,15 +77,56 @@ final class ConnectionRepository
             'default_schema' => $data['default_schema'],
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
 
-        return (int) $this->pdo->lastInsertId();
+        $this->writeAll($rows);
+        return $newId;
     }
 
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare('DELETE FROM connections WHERE id = :id');
-        $stmt->execute(['id' => $id]);
-        return $stmt->rowCount() > 0;
+        $rows = $this->readAll();
+        $filtered = array_values(array_filter($rows, static fn (array $row): bool => (int) $row['id'] !== $id));
+        if (count($filtered) === count($rows)) {
+            return false;
+        }
+
+        $this->writeAll($filtered);
+        return true;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function readAll(): array
+    {
+        $raw = file_get_contents($this->storagePath);
+        if (!is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function writeAll(array $rows): void
+    {
+        file_put_contents($this->storagePath, json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function nextId(array $rows): int
+    {
+        $maxId = 0;
+        foreach ($rows as $row) {
+            $maxId = max($maxId, (int) ($row['id'] ?? 0));
+        }
+
+        return $maxId + 1;
     }
 }

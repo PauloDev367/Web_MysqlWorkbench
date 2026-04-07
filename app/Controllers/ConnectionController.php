@@ -9,7 +9,7 @@ final class ConnectionController extends Controller
 
     public function __construct()
     {
-        $this->repository = new ConnectionRepository(Database::connection());
+        $this->repository = new ConnectionRepository();
         $this->mySqlService = new MySqlConnectionService();
     }
 

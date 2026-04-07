@@ -7,7 +7,6 @@ $basePath = dirname(__DIR__);
 require $basePath . '/app/Core/Router.php';
 require $basePath . '/app/Core/Controller.php';
 require $basePath . '/app/Core/View.php';
-require $basePath . '/app/Core/Database.php';
 require $basePath . '/app/Core/Crypto.php';
 require $basePath . '/app/Controllers/HomeController.php';
 require $basePath . '/app/Controllers/ConnectionController.php';

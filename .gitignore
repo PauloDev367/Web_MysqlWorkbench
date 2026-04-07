@@ -1,3 +1,4 @@
 /storage/database/*.sqlite
+/storage/database/*.json
 /storage/logs/
 /PLANO_FUNCIONAL_COMPLETO.md

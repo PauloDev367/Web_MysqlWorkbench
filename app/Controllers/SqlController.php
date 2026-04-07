@@ -10,7 +10,7 @@ final class SqlController extends Controller
 
     public function __construct()
     {
-        $this->repository = new ConnectionRepository(Database::connection());
+        $this->repository = new ConnectionRepository();
         $mySqlService = new MySqlConnectionService();
         $this->schemaService = new SchemaExplorerService($mySqlService);
         $this->sqlExecutionService = new SqlExecutionService($mySqlService);
