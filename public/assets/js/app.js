@@ -209,6 +209,7 @@
             { title: 'Query 1', sql: sqlEditor.value },
         ];
         let activeTab = 0;
+        let activeSchema = '';
 
         const renderTabs = () => {
             queryTabs.innerHTML = tabState.map((tab, index) => {
@@ -254,7 +255,7 @@
             const response = await fetch('/api/sql/execute', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ connection_id: connectionId, sql }),
+                body: JSON.stringify({ connection_id: connectionId, sql, active_schema: activeSchema }),
             });
 
             const payload = await parseResponse(response);
@@ -274,7 +275,7 @@
             schemaTree.innerHTML = schemas.map((schema) => `
                 <li>
                     <details open>
-                        <summary>${schema.name}</summary>
+                        <summary class="wb-schema-item" data-schema-name="${schema.name}">${schema.name}</summary>
                         <ul>
                             <li>
                                 <details open>
@@ -288,6 +289,21 @@
                     </details>
                 </li>
             `).join('');
+
+            schemaTree.querySelectorAll('.wb-schema-item').forEach((element) => {
+                element.addEventListener('dblclick', (event) => {
+                    event.preventDefault();
+                    const schemaName = element.getAttribute('data-schema-name') || '';
+                    if (!schemaName) {
+                        return;
+                    }
+
+                    activeSchema = schemaName;
+                    schemaTree.querySelectorAll('.wb-schema-item').forEach((item) => item.classList.remove('is-selected-schema'));
+                    element.classList.add('is-selected-schema');
+                    appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
+                });
+            });
         };
 
         runSelectedBtn.addEventListener('click', async () => {
@@ -320,6 +336,32 @@
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Falha ao executar SQL.';
                 appendOutput('Execute All', message);
+            }
+        });
+
+        sqlEditor.addEventListener('keydown', async (event) => {
+            if (!(event.ctrlKey && event.key === 'Enter')) {
+                return;
+            }
+
+            event.preventDefault();
+            const start = sqlEditor.selectionStart;
+            const end = sqlEditor.selectionEnd;
+            const selectedSql = sqlEditor.value.slice(start, end).trim();
+            const sqlToRun = selectedSql || sqlEditor.value.trim();
+
+            if (!sqlToRun) {
+                appendOutput('Shortcut Ctrl+Enter', 'Editor vazio.');
+                return;
+            }
+
+            const action = selectedSql ? 'Execute Selected (Ctrl+Enter)' : 'Execute All (Ctrl+Enter)';
+
+            try {
+                await executeSql(action, sqlToRun);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Falha ao executar via atalho.';
+                appendOutput(action, message);
             }
         });
 

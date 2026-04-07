@@ -166,6 +166,10 @@ html, body {
 .wb-tree, .wb-tree ul { list-style: none; margin: 0; padding-left: 14px; }
 .wb-tree summary { cursor: pointer; margin: 4px 0; }
 .wb-tree li { margin: 3px 0; }
+.wb-schema-item.is-selected-schema {
+    color: #7dc4ff;
+    font-weight: 600;
+}
 
 .wb-editor-main {
     display: grid;

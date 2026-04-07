@@ -40,6 +40,7 @@ final class SqlController extends Controller
         $payload = $this->requestJson();
         $connectionId = (int) ($payload['connection_id'] ?? 0);
         $sql = (string) ($payload['sql'] ?? '');
+        $activeSchema = trim((string) ($payload['active_schema'] ?? ''));
 
         $connection = $this->repository->find($connectionId);
         if ($connection === null) {
@@ -47,7 +48,7 @@ final class SqlController extends Controller
             return;
         }
 
-        $result = $this->sqlExecutionService->execute($connection, $sql);
+        $result = $this->sqlExecutionService->execute($connection, $sql, $activeSchema);
         $this->json($result, $result['success'] ? 200 : 422);
     }
 

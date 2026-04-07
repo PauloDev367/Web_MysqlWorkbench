@@ -12,7 +12,7 @@ final class SqlExecutionService
      * @param array<string, mixed> $connection
      * @return array<string, mixed>
      */
-    public function execute(array $connection, string $sql): array
+    public function execute(array $connection, string $sql, string $activeSchema = ''): array
     {
         $query = trim($sql);
         if ($query === '') {
@@ -30,6 +30,12 @@ final class SqlExecutionService
 
         try {
             $pdo = $this->connectionService->connect($connection);
+            if ($activeSchema !== '') {
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $activeSchema)) {
+                    throw new RuntimeException('Schema ativo inválido.');
+                }
+                $pdo->exec('USE `' . $activeSchema . '`');
+            }
             $statement = $pdo->query($query);
             $duration = (int) round((microtime(true) - $start) * 1000);
 
