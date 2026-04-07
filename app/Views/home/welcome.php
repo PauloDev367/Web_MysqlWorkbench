@@ -59,10 +59,15 @@
                 <input id="username" name="user" type="text" value="root" required>
             </div>
             <div class="wb-form-row">
+                <label for="password">Password:</label>
+                <input id="password" name="password" type="password" placeholder="Opcional">
+            </div>
+            <div class="wb-form-row">
                 <label for="defaultSchema">Default Schema:</label>
                 <input id="defaultSchema" name="schema" type="text" placeholder="Opcional">
             </div>
             <div class="wb-form-actions">
+                <button type="button" id="testConnectionBtn" class="wb-btn">Test Connection</button>
                 <button type="button" class="wb-btn wb-btn--ghost" data-close-modal>Cancel</button>
                 <button type="submit" class="wb-btn wb-btn--primary">OK</button>
             </div>

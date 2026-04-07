@@ -4,20 +4,28 @@ declare(strict_types=1);
 
 final class HomeController extends Controller
 {
-    public function index(): void
+    /**
+     * @param array<string, string> $params
+     */
+    public function index(array $params = []): void
     {
         $this->render('home/welcome', [
             'title' => 'Web SQL Workbench',
         ]);
     }
 
-    public function editor(): void
+    /**
+     * @param array<string, string> $params
+     */
+    public function editor(array $params = []): void
     {
-        $connection = trim((string) ($_GET['connection'] ?? 'Localhost'));
+        $connectionName = trim((string) ($_GET['connection'] ?? 'Localhost'));
+        $connectionId = (int) ($_GET['connection_id'] ?? 0);
 
         $this->render('home/editor', [
-            'title' => 'SQL Editor - ' . $connection,
-            'connection' => $connection,
+            'title' => 'SQL Editor - ' . $connectionName,
+            'connection' => $connectionName,
+            'connectionId' => $connectionId,
         ]);
     }
 }
