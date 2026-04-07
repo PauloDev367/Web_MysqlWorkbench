@@ -1,5 +1,5 @@
 <div class="wb-shell wb-shell--editor">
-    <header class="wb-menubar">
+    <header class="wb-menubar" data-connection-id="<?= (int) ($connectionId ?? 0) ?>">
         <div class="wb-menubar__menus">File &nbsp; Edit &nbsp; View &nbsp; Query &nbsp; Database &nbsp; Server &nbsp; Tools &nbsp; Scripting &nbsp; Help</div>
         <div class="wb-menubar__status"><?= htmlspecialchars((string) ($connection ?? 'Localhost')) ?></div>
     </header>
@@ -10,37 +10,7 @@
                 <button class="is-active">SCHEMAS</button>
             </div>
             <div class="wb-nav__content">
-                <ul class="wb-tree">
-                    <li>
-                        <details open>
-                            <summary>app_db</summary>
-                            <ul>
-                                <li>
-                                    <details open>
-                                        <summary>Tables</summary>
-                                        <ul>
-                                            <li>users</li>
-                                            <li>orders</li>
-                                            <li>products</li>
-                                        </ul>
-                                    </details>
-                                </li>
-                                <li>Views</li>
-                                <li>Stored Procedures</li>
-                                <li>Functions</li>
-                            </ul>
-                        </details>
-                    </li>
-                    <li>
-                        <details>
-                            <summary>analytics_db</summary>
-                            <ul>
-                                <li>Tables</li>
-                                <li>Views</li>
-                            </ul>
-                        </details>
-                    </li>
-                </ul>
+                <ul id="schemaTree" class="wb-tree"></ul>
             </div>
         </aside>
 
@@ -60,6 +30,18 @@
 
             <div class="wb-editor-area">
                 <textarea id="sqlEditor" spellcheck="false">SELECT * FROM users LIMIT 50;</textarea>
+            </div>
+
+            <div class="wb-result-grid">
+                <div class="wb-output__title">Result Grid</div>
+                <table>
+                    <thead id="resultGridHead"></thead>
+                    <tbody id="resultGridRows">
+                        <tr>
+                            <td>Nenhum resultado ainda.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div class="wb-output">

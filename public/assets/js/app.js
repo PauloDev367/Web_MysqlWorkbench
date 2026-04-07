@@ -120,12 +120,16 @@
     };
 
     const setupEditorScreen = () => {
+        const menubar = document.querySelector('.wb-menubar[data-connection-id]');
         const sqlEditor = document.getElementById('sqlEditor');
         const runSelectedBtn = document.getElementById('runSelectedBtn');
         const runAllBtn = document.getElementById('runAllBtn');
         const outputRows = document.getElementById('actionOutputRows');
+        const schemaTree = document.getElementById('schemaTree');
+        const resultGridHead = document.getElementById('resultGridHead');
+        const resultGridRows = document.getElementById('resultGridRows');
 
-        if (!sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows) {
+        if (!menubar || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows) {
             return;
         }
 
@@ -143,7 +147,66 @@
             outputRows.prepend(row);
         };
 
-        runSelectedBtn.addEventListener('click', () => {
+        const connectionId = Number(menubar.getAttribute('data-connection-id') || '0');
+        if (!connectionId) {
+            appendOutput('Connection', 'Conexão inválida para carregar schemas.');
+            return;
+        }
+
+        const renderResultGrid = (columns, rows) => {
+            if (!columns.length || !rows.length) {
+                resultGridHead.innerHTML = '';
+                resultGridRows.innerHTML = '<tr><td>Nenhum resultado.</td></tr>';
+                return;
+            }
+
+            resultGridHead.innerHTML = `<tr>${columns.map((column) => `<th>${column}</th>`).join('')}</tr>`;
+            resultGridRows.innerHTML = rows.map((row) => `
+                <tr>${columns.map((column) => `<td>${row[column] ?? ''}</td>`).join('')}</tr>
+            `).join('');
+        };
+
+        const executeSql = async (action, sql) => {
+            const response = await fetch('/api/sql/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ connection_id: connectionId, sql }),
+            });
+
+            const payload = await parseResponse(response);
+            renderResultGrid(payload.columns || [], payload.rows || []);
+            appendOutput(action, `${payload.message} (${payload.duration_ms} ms)`);
+        };
+
+        const renderSchemas = async () => {
+            const response = await fetch(`/api/connections/${connectionId}/schemas`);
+            const payload = await parseResponse(response);
+            const schemas = Array.isArray(payload.data) ? payload.data : [];
+            if (!schemas.length) {
+                schemaTree.innerHTML = '<li>Nenhum schema encontrado.</li>';
+                return;
+            }
+
+            schemaTree.innerHTML = schemas.map((schema) => `
+                <li>
+                    <details open>
+                        <summary>${schema.name}</summary>
+                        <ul>
+                            <li>
+                                <details open>
+                                    <summary>Tables</summary>
+                                    <ul>
+                                        ${(schema.tables || []).map((table) => `<li>${table}</li>`).join('')}
+                                    </ul>
+                                </details>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+            `).join('');
+        };
+
+        runSelectedBtn.addEventListener('click', async () => {
             const start = sqlEditor.selectionStart;
             const end = sqlEditor.selectionEnd;
             const selectedSql = sqlEditor.value.slice(start, end).trim();
@@ -153,16 +216,32 @@
                 return;
             }
 
-            appendOutput('Execute Selected', `Execução simulada: ${selectedSql.slice(0, 60)}`);
+            try {
+                await executeSql('Execute Selected', selectedSql);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Falha ao executar SQL selecionado.';
+                appendOutput('Execute Selected', message);
+            }
         });
 
-        runAllBtn.addEventListener('click', () => {
+        runAllBtn.addEventListener('click', async () => {
             const sql = sqlEditor.value.trim();
             if (!sql) {
                 appendOutput('Execute All', 'Editor vazio.');
                 return;
             }
-            appendOutput('Execute All', `Execução simulada de ${sql.length} caracteres.`);
+
+            try {
+                await executeSql('Execute All', sql);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'Falha ao executar SQL.';
+                appendOutput('Execute All', message);
+            }
+        });
+
+        renderSchemas().catch((error) => {
+            const message = error instanceof Error ? error.message : 'Falha ao carregar schemas.';
+            appendOutput('Load Schemas', message);
         });
     };
 

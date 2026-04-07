@@ -169,7 +169,7 @@ html, body {
 
 .wb-editor-main {
     display: grid;
-    grid-template-rows: 34px 38px 1fr 165px;
+    grid-template-rows: 34px 38px 1fr 170px 165px;
     min-height: 0;
 }
 
@@ -233,6 +233,12 @@ html, body {
     background: #2a2f3a;
     color: #dce1eb;
     overflow: auto;
+}
+.wb-result-grid {
+    background: #1f2430;
+    color: #dce1eb;
+    overflow: auto;
+    border-bottom: 1px solid var(--wb-border-dark);
 }
 .wb-output__title {
     height: 28px;

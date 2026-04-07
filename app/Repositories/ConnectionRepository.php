@@ -40,6 +40,23 @@ final class ConnectionRepository
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function findPublic(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, name, host, port, username, default_schema, created_at, updated_at
+             FROM connections
+             WHERE id = :id
+             LIMIT 1'
+        );
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
      * @param array<string, string> $data
      */
     public function create(array $data): int
