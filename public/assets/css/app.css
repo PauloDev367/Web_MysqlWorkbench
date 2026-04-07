@@ -344,14 +344,23 @@ html, body {
 .wb-context-menu button:hover {
     background: #44506a;
 }
+.wb-context-submenu {
+    margin: 2px 0 4px 10px;
+    border-left: 1px solid #4a5161;
+    padding-left: 6px;
+}
+.wb-context-submenu--hidden {
+    display: none;
+}
 
 .wb-editor-main {
     display: grid;
-    grid-template-rows: auto 34px 38px 1fr 170px 165px;
+    grid-template-rows: auto 34px 38px 1fr 265px 165px;
     min-height: 0;
     grid-column: 2;
 }
 .wb-error-banner {
+    grid-row: 1;
     padding: 8px 10px;
     background: #7f1d1d;
     color: #fecaca;
@@ -363,6 +372,7 @@ html, body {
 }
 
 .wb-query-tabbar {
+    grid-row: 2;
     display: flex;
     align-items: end;
     gap: 2px;
@@ -406,6 +416,7 @@ html, body {
 }
 
 .wb-query-toolbar {
+    grid-row: 3;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -427,6 +438,7 @@ html, body {
 }
 
 .wb-editor-area {
+    grid-row: 4;
     border-bottom: 1px solid var(--wb-border-dark);
     background: #f3f4f6;
 }
@@ -471,6 +483,7 @@ html, body {
 .sql-token-comment { color: #6a737d; font-style: italic; }
 
 .wb-output {
+    grid-row: 6;
     background: #2a2f3a;
     color: #eef2f9;
     overflow: auto;
@@ -479,6 +492,7 @@ html, body {
     display: none;
 }
 .wb-result-grid {
+    grid-row: 5;
     background: #1f2430;
     color: #dce1eb;
     overflow: auto;

@@ -504,6 +504,12 @@
             menu.innerHTML = `
                 <button type="button" data-table-action="table.search-records">Buscar registros</button>
                 <button type="button" data-table-action="table.copy-crud">Copiar CRUD para clipboard</button>
+                <div class="wb-context-submenu wb-context-submenu--hidden" data-crud-submenu>
+                    <button type="button" data-table-action="table.copy-crud.select">Select</button>
+                    <button type="button" data-table-action="table.copy-crud.insert">Insert</button>
+                    <button type="button" data-table-action="table.copy-crud.update">Update</button>
+                    <button type="button" data-table-action="table.copy-crud.delete">Delete</button>
+                </div>
                 <button type="button" data-table-action="table.export-data">Table data export</button>
                 <button type="button" data-table-action="table.drop">Drop table</button>
                 <button type="button" data-table-action="table.truncate">Truncate table</button>
@@ -514,9 +520,13 @@
         };
 
         const contextMenu = createContextMenu();
+        const crudSubmenu = contextMenu.querySelector('[data-crud-submenu]');
 
         const hideContextMenu = () => {
             contextMenu.classList.add('wb-context-menu--hidden');
+            if (crudSubmenu instanceof HTMLElement) {
+                crudSubmenu.classList.add('wb-context-submenu--hidden');
+            }
             tableContextMenuTarget = null;
         };
 
@@ -530,6 +540,9 @@
             contextMenu.style.left = `${x}px`;
             contextMenu.style.top = `${y}px`;
             contextMenu.classList.remove('wb-context-menu--hidden');
+            if (crudSubmenu instanceof HTMLElement) {
+                crudSubmenu.classList.add('wb-context-submenu--hidden');
+            }
         };
 
         const executeSqlRaw = async (sql) => {
@@ -668,6 +681,13 @@
             const { schemaName, tableName, columns } = tableContextMenuTarget;
             const qualifiedTable = `${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`;
 
+            if (action === 'table.copy-crud') {
+                if (crudSubmenu instanceof HTMLElement) {
+                    crudSubmenu.classList.toggle('wb-context-submenu--hidden');
+                }
+                return;
+            }
+
             hideContextMenu();
 
             try {
@@ -676,20 +696,27 @@
                     return;
                 }
 
-                if (action === 'table.copy-crud') {
+                if (action.startsWith('table.copy-crud.')) {
                     const cols = columns.length ? columns : ['id'];
                     const columnList = cols.map((col) => quoteIdentifier(col)).join(', ');
                     const insertValues = cols.map(() => '?').join(', ');
                     const updateSet = cols.map((col) => `${quoteIdentifier(col)} = ?`).join(', ');
-                    const template = [
-                        `-- CRUD template for ${qualifiedTable}`,
-                        `SELECT ${columnList} FROM ${qualifiedTable} LIMIT 200;`,
-                        `INSERT INTO ${qualifiedTable} (${columnList}) VALUES (${insertValues});`,
-                        `UPDATE ${qualifiedTable} SET ${updateSet} WHERE id = ?;`,
-                        `DELETE FROM ${qualifiedTable} WHERE id = ?;`,
-                    ].join('\n');
-                    await copyToClipboard(template);
-                    appendOutput('Table', `CRUD copiado para clipboard (${schemaName}.${tableName}).`);
+                    const templates = {
+                        select: `SELECT ${columnList} FROM ${qualifiedTable} LIMIT 200;`,
+                        insert: `INSERT INTO ${qualifiedTable} (${columnList}) VALUES (${insertValues});`,
+                        update: `UPDATE ${qualifiedTable} SET ${updateSet} WHERE id = ?;`,
+                        delete: `DELETE FROM ${qualifiedTable} WHERE id = ?;`,
+                    };
+
+                    const key = action.replace('table.copy-crud.', '');
+                    const selectedTemplate = templates[key];
+                    if (!selectedTemplate) {
+                        appendOutput('Table', 'Opção de CRUD inválida.');
+                        return;
+                    }
+
+                    await copyToClipboard(selectedTemplate);
+                    appendOutput('Table', `${key.toUpperCase()} copiado para clipboard (${schemaName}.${tableName}).`);
                     return;
                 }
 
