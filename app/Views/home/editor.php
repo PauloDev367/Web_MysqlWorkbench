@@ -8,6 +8,7 @@
                     <button data-menu-action="file.open-script">Open SQL File...</button>
                     <button data-menu-action="file.save-script">Save Current Tab</button>
                     <button data-menu-action="file.close-tab">Close Current Tab</button>
+                    <button data-menu-action="file.disconnect">Disconnect</button>
                 </div>
             </div>
             <div class="wb-menu">

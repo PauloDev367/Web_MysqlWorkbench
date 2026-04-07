@@ -413,6 +413,9 @@
                 case 'file.close-tab':
                     closeCurrentTab();
                     break;
+                case 'file.disconnect':
+                    window.location.href = '/';
+                    break;
                 case 'file.open-script':
                     sqlFileInput.click();
                     break;
