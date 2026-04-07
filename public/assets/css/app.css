@@ -143,6 +143,67 @@ html, body {
 .wb-home-panel p {
     margin: 0;
 }
+.wb-home-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.wb-home-panel__meta {
+    color: #6b7280;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+.wb-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.wb-kpi-card {
+    border: 1px solid #d5dde8;
+    border-radius: 4px;
+    background: #ffffff;
+    padding: 10px;
+}
+.wb-kpi-card__label {
+    font-size: 12px;
+    color: #6b7280;
+}
+.wb-kpi-card__value {
+    font-size: 20px;
+    color: #1f2937;
+    font-weight: 700;
+}
+.wb-kpi-card__value--ok { color: #0f766e; }
+.wb-kpi-card__value--bad { color: #b91c1c; }
+.wb-performance-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.wb-performance-table th,
+.wb-performance-table td {
+    border: 1px solid #d8deea;
+    padding: 8px 10px;
+    text-align: left;
+    color: #1f2937;
+}
+.wb-status-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.wb-status-pill--ok {
+    background: #d1fae5;
+    color: #065f46;
+}
+.wb-status-pill--bad {
+    background: #fee2e2;
+    color: #991b1b;
+}
 .wb-home-panel--hidden {
     display: none;
 }

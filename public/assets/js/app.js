@@ -16,6 +16,14 @@
         const testConnectionBtn = document.getElementById('testConnectionBtn');
         const navButtons = document.querySelectorAll('[data-home-nav]');
         const sections = document.querySelectorAll('[data-home-section]');
+        const refreshPerformanceBtn = document.getElementById('refreshPerformanceBtn');
+        const performanceRows = document.getElementById('performanceRows');
+        const performanceUpdatedAt = document.getElementById('performanceUpdatedAt');
+        const kpiTotalConnections = document.getElementById('kpiTotalConnections');
+        const kpiOnlineConnections = document.getElementById('kpiOnlineConnections');
+        const kpiOfflineConnections = document.getElementById('kpiOfflineConnections');
+        const kpiAvgLatency = document.getElementById('kpiAvgLatency');
+        let cachedConnections = [];
 
         if (!grid || !newConnectionBtn || !modal || !form || !testConnectionBtn) {
             return;
@@ -36,6 +44,10 @@
                 const isActive = button.getAttribute('data-home-nav') === sectionName;
                 button.classList.toggle('wb-icon--active', isActive);
             });
+
+            if (sectionName === 'performance') {
+                runPerformanceChecks();
+            }
         };
 
         navButtons.forEach((button) => {
@@ -61,6 +73,7 @@
             const response = await fetch('/api/connections');
             const payload = await parseResponse(response);
             const connections = Array.isArray(payload.data) ? payload.data : [];
+            cachedConnections = connections;
 
             grid.innerHTML = connections.map((conn) => `
                 <article class="wb-conn-card" data-connection-id="${conn.id}" data-connection-name="${conn.name}">
@@ -113,6 +126,84 @@
                     window.location.href = `/sql-editor?connection_id=${encodeURIComponent(connectionId)}&connection=${encodeURIComponent(connectionName)}`;
                 });
             });
+        };
+
+        const renderPerformanceSummary = (rows) => {
+            const total = rows.length;
+            const online = rows.filter((row) => row.success).length;
+            const offline = total - online;
+            const avg = rows.length
+                ? Math.round(rows.reduce((sum, row) => sum + row.latencyMs, 0) / rows.length)
+                : 0;
+
+            if (kpiTotalConnections) kpiTotalConnections.textContent = String(total);
+            if (kpiOnlineConnections) kpiOnlineConnections.textContent = String(online);
+            if (kpiOfflineConnections) kpiOfflineConnections.textContent = String(offline);
+            if (kpiAvgLatency) kpiAvgLatency.textContent = total ? `${avg} ms` : '--';
+            if (performanceUpdatedAt) {
+                performanceUpdatedAt.textContent = `Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+            }
+        };
+
+        const runPerformanceChecks = async () => {
+            if (!performanceRows) {
+                return;
+            }
+
+            if (!cachedConnections.length) {
+                try {
+                    await renderConnections();
+                } catch (error) {
+                    performanceRows.innerHTML = '<tr><td colspan="5">Falha ao carregar conexões.</td></tr>';
+                    return;
+                }
+            }
+
+            if (!cachedConnections.length) {
+                performanceRows.innerHTML = '<tr><td colspan="5">Nenhuma conexão cadastrada.</td></tr>';
+                renderPerformanceSummary([]);
+                return;
+            }
+
+            performanceRows.innerHTML = '<tr><td colspan="5">Executando testes...</td></tr>';
+
+            const checks = await Promise.all(cachedConnections.map(async (conn) => {
+                const startedAt = performance.now();
+                try {
+                    const response = await fetch(`/api/connections/${conn.id}/test`, { method: 'POST' });
+                    const payload = await parseResponse(response);
+                    return {
+                        ...conn,
+                        success: true,
+                        message: payload.message || 'OK',
+                        latencyMs: Math.round(performance.now() - startedAt),
+                    };
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : 'Falha na conexão.';
+                    return {
+                        ...conn,
+                        success: false,
+                        message,
+                        latencyMs: Math.round(performance.now() - startedAt),
+                    };
+                }
+            }));
+
+            performanceRows.innerHTML = checks.map((row) => `
+                <tr>
+                    <td>${row.name}</td>
+                    <td>${row.host}:${row.port}</td>
+                    <td>
+                        <span class="wb-status-pill ${row.success ? 'wb-status-pill--ok' : 'wb-status-pill--bad'}">
+                            ${row.success ? 'Online' : 'Offline'}
+                        </span>
+                    </td>
+                    <td>${row.message}</td>
+                    <td>${row.latencyMs} ms</td>
+                </tr>
+            `).join('');
+
+            renderPerformanceSummary(checks);
         };
 
         newConnectionBtn.addEventListener('click', openModal);
@@ -175,6 +266,10 @@
                 alert(message);
             }
         });
+
+        if (refreshPerformanceBtn) {
+            refreshPerformanceBtn.addEventListener('click', runPerformanceChecks);
+        }
 
         renderConnections().catch(() => {
             grid.innerHTML = '<p>Falha ao carregar conexões.</p>';
