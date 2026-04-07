@@ -157,6 +157,9 @@
 
     const setupEditorScreen = () => {
         const menubar = document.querySelector('.wb-menubar[data-connection-id]');
+        const editorLayout = document.querySelector('.wb-editor-layout');
+        const navPanel = document.querySelector('.wb-nav');
+        const outputPanel = document.querySelector('.wb-output');
         const sqlEditor = document.getElementById('sqlEditor');
         const runSelectedBtn = document.getElementById('runSelectedBtn');
         const runAllBtn = document.getElementById('runAllBtn');
@@ -167,8 +170,9 @@
         const queryTabs = document.getElementById('queryTabs');
         const newTabBtn = document.getElementById('newTabBtn');
         const closeTabBtn = document.getElementById('closeTabBtn');
+        const sqlFileInput = document.getElementById('sqlFileInput');
 
-        if (!menubar || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !queryTabs || !newTabBtn || !closeTabBtn) {
+        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
             return;
         }
 
@@ -228,7 +232,7 @@
             });
         };
 
-        newTabBtn.addEventListener('click', () => {
+        const createNewTab = () => {
             tabState[activeTab].sql = sqlEditor.value;
             const nextIndex = tabState.length + 1;
             tabState.push({ title: `Query ${nextIndex}`, sql: '' });
@@ -236,9 +240,9 @@
             sqlEditor.value = '';
             renderTabs();
             appendOutput('Tabs', `Nova aba Query ${nextIndex} criada.`);
-        });
+        };
 
-        closeTabBtn.addEventListener('click', () => {
+        const closeCurrentTab = () => {
             if (tabState.length === 1) {
                 appendOutput('Tabs', 'Não é possível fechar a última aba.');
                 return;
@@ -249,7 +253,10 @@
             sqlEditor.value = tabState[activeTab].sql;
             renderTabs();
             appendOutput('Tabs', 'Aba fechada.');
-        });
+        };
+
+        newTabBtn.addEventListener('click', createNewTab);
+        closeTabBtn.addEventListener('click', closeCurrentTab);
 
         const executeSql = async (action, sql) => {
             const response = await fetch('/api/sql/execute', {
@@ -306,7 +313,7 @@
             });
         };
 
-        runSelectedBtn.addEventListener('click', async () => {
+        const runSelected = async () => {
             const start = sqlEditor.selectionStart;
             const end = sqlEditor.selectionEnd;
             const selectedSql = sqlEditor.value.slice(start, end).trim();
@@ -322,9 +329,9 @@
                 const message = error instanceof Error ? error.message : 'Falha ao executar SQL selecionado.';
                 appendOutput('Execute Selected', message);
             }
-        });
+        };
 
-        runAllBtn.addEventListener('click', async () => {
+        const runAll = async () => {
             const sql = sqlEditor.value.trim();
             if (!sql) {
                 appendOutput('Execute All', 'Editor vazio.');
@@ -337,7 +344,10 @@
                 const message = error instanceof Error ? error.message : 'Falha ao executar SQL.';
                 appendOutput('Execute All', message);
             }
-        });
+        };
+
+        runSelectedBtn.addEventListener('click', runSelected);
+        runAllBtn.addEventListener('click', runAll);
 
         sqlEditor.addEventListener('keydown', async (event) => {
             if (!(event.ctrlKey && event.key === 'Enter')) {
@@ -363,6 +373,129 @@
                 const message = error instanceof Error ? error.message : 'Falha ao executar via atalho.';
                 appendOutput(action, message);
             }
+        });
+
+        const clearActiveSchema = () => {
+            activeSchema = '';
+            schemaTree.querySelectorAll('.wb-schema-item').forEach((item) => item.classList.remove('is-selected-schema'));
+            appendOutput('Schema', 'Schema ativo limpo.');
+        };
+
+        const formatSqlBasic = () => {
+            const keywords = ['select', 'from', 'where', 'join', 'left join', 'right join', 'inner join', 'order by', 'group by', 'limit', 'insert', 'into', 'values', 'update', 'set', 'delete', 'use'];
+            let formatted = sqlEditor.value;
+            keywords.forEach((keyword) => {
+                const escaped = keyword.replace(' ', '\\s+');
+                const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+                formatted = formatted.replace(regex, keyword.toUpperCase());
+            });
+            sqlEditor.value = formatted;
+            tabState[activeTab].sql = formatted;
+            appendOutput('Scripting', 'SQL formatado (modo básico).');
+        };
+
+        menubar.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            const action = target.getAttribute('data-menu-action');
+            if (!action) {
+                return;
+            }
+
+            switch (action) {
+                case 'file.new-tab':
+                case 'query.new-tab':
+                    createNewTab();
+                    break;
+                case 'file.close-tab':
+                    closeCurrentTab();
+                    break;
+                case 'file.open-script':
+                    sqlFileInput.click();
+                    break;
+                case 'file.save-script': {
+                    const content = sqlEditor.value;
+                    const blob = new Blob([content], { type: 'text/sql;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${tabState[activeTab].title.replace(/\s+/g, '_').toLowerCase()}.sql`;
+                    document.body.append(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(link.href);
+                    appendOutput('File', 'Script exportado.');
+                    break;
+                }
+                case 'edit.undo':
+                    document.execCommand('undo');
+                    break;
+                case 'edit.redo':
+                    document.execCommand('redo');
+                    break;
+                case 'edit.select-all':
+                    sqlEditor.select();
+                    appendOutput('Edit', 'Todo o SQL selecionado.');
+                    break;
+                case 'edit.clear-editor':
+                    sqlEditor.value = '';
+                    tabState[activeTab].sql = '';
+                    appendOutput('Edit', 'Editor limpo.');
+                    break;
+                case 'view.toggle-schemas':
+                    navPanel.classList.toggle('wb-nav--hidden');
+                    editorLayout.style.gridTemplateColumns = navPanel.classList.contains('wb-nav--hidden') ? '0 1fr' : '280px 1fr';
+                    break;
+                case 'view.toggle-output':
+                    outputPanel.classList.toggle('wb-output--hidden');
+                    break;
+                case 'query.run-selected':
+                    await runSelected();
+                    break;
+                case 'query.run-all':
+                    await runAll();
+                    break;
+                case 'database.refresh-schemas':
+                    await renderSchemas();
+                    appendOutput('Database', 'Schemas atualizados.');
+                    break;
+                case 'database.clear-active-schema':
+                    clearActiveSchema();
+                    break;
+                case 'server.test-connection': {
+                    const response = await fetch(`/api/connections/${connectionId}/test`, { method: 'POST' });
+                    const payload = await parseResponse(response);
+                    appendOutput('Server', payload.message || 'Teste de conexão executado.');
+                    break;
+                }
+                case 'tools.clear-output':
+                    outputRows.innerHTML = '';
+                    appendOutput('Tools', 'Action Output limpo.');
+                    break;
+                case 'scripting.format-sql':
+                    formatSqlBasic();
+                    break;
+                case 'help.shortcuts':
+                    alert('Atalhos:\nCtrl+Enter -> Executar selecionado ou tudo\nCtrl+L -> Limpar editor (em breve)');
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        sqlFileInput.addEventListener('change', async () => {
+            const file = sqlFileInput.files?.[0];
+            if (!file) {
+                return;
+            }
+
+            const content = await file.text();
+            sqlEditor.value = content;
+            tabState[activeTab].sql = content;
+            appendOutput('File', `Script ${file.name} carregado.`);
+            sqlFileInput.value = '';
         });
 
         renderSchemas().catch((error) => {

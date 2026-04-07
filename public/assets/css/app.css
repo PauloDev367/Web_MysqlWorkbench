@@ -30,6 +30,52 @@ html, body {
     font-size: 11px;
     border-bottom: 1px solid #1a1d26;
 }
+.wb-menubar__menus {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.wb-menu {
+    position: relative;
+}
+.wb-menu__trigger {
+    border: 0;
+    background: transparent;
+    color: var(--wb-text-light);
+    font-size: 11px;
+    padding: 3px 7px;
+    cursor: pointer;
+}
+.wb-menu__trigger:hover {
+    background: #3a3f4c;
+}
+.wb-menu__dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    min-width: 190px;
+    background: #2f3441;
+    border: 1px solid #4a5161;
+    z-index: 50;
+    padding: 4px;
+}
+.wb-menu:hover .wb-menu__dropdown {
+    display: block;
+}
+.wb-menu__dropdown button {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    color: #e6eaf2;
+    padding: 6px 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.wb-menu__dropdown button:hover {
+    background: #44506a;
+}
 
 .wb-layout {
     height: calc(100vh - 28px);
@@ -147,6 +193,9 @@ html, body {
     display: flex;
     flex-direction: column;
 }
+.wb-nav--hidden {
+    display: none;
+}
 
 .wb-nav__tabs {
     height: 32px;
@@ -243,6 +292,9 @@ html, body {
     background: #2a2f3a;
     color: #dce1eb;
     overflow: auto;
+}
+.wb-output--hidden {
+    display: none;
 }
 .wb-result-grid {
     background: #1f2430;
