@@ -119,9 +119,6 @@ html, body {
 .wb-welcome__hero h1 { margin: 0 0 14px; font-size: 56px; color: #505a66; font-weight: 300; }
 .wb-welcome__hero p { margin: 0 0 18px; line-height: 1.6; font-size: 15px; }
 
-.wb-links { display: flex; justify-content: center; gap: 48px; font-size: 14px; }
-.wb-links a { color: #2f86d2; text-decoration: none; }
-
 .wb-connections { max-width: 980px; margin: 0 auto; }
 .wb-connections__header {
     display: flex; align-items: center; justify-content: space-between;

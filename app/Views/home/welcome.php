@@ -17,11 +17,6 @@
                 <p>
                     Interface para modelagem e consultas SQL. Comece criando uma conexão ou abrindo uma existente.
                 </p>
-                <div class="wb-links">
-                    <a href="#">Browse Documentation</a>
-                    <a href="#">Read the Blog</a>
-                    <a href="#">Discuss on Forums</a>
-                </div>
             </section>
 
             <section class="wb-connections" data-home-section="connections">
