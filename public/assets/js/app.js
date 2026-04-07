@@ -344,6 +344,30 @@
                                     </ul>
                                 </details>
                             </li>
+                            <li>
+                                <details>
+                                    <summary>Views</summary>
+                                    <ul>
+                                        ${(schema.views || []).map((view) => `<li>${view}</li>`).join('') || '<li>(vazio)</li>'}
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Stored Procedures</summary>
+                                    <ul>
+                                        ${(schema.procedures || []).map((procedure) => `<li>${procedure}</li>`).join('') || '<li>(vazio)</li>'}
+                                    </ul>
+                                </details>
+                            </li>
+                            <li>
+                                <details>
+                                    <summary>Functions</summary>
+                                    <ul>
+                                        ${(schema.functions || []).map((fn) => `<li>${fn}</li>`).join('') || '<li>(vazio)</li>'}
+                                    </ul>
+                                </details>
+                            </li>
                         </ul>
                     </details>
                 </li>
