@@ -494,9 +494,18 @@
                 return;
             }
 
+            const isSqlFile = /\.sql$/i.test(file.name) || /\.txt$/i.test(file.name);
+            if (!isSqlFile) {
+                appendOutput('File', 'Arquivo inválido. Use .sql ou .txt.');
+                sqlFileInput.value = '';
+                return;
+            }
+
             const content = await file.text();
             sqlEditor.value = content;
             tabState[activeTab].sql = content;
+            tabState[activeTab].title = file.name.replace(/\.(sql|txt)$/i, '') || tabState[activeTab].title;
+            renderTabs();
             appendOutput('File', `Script ${file.name} carregado.`);
             sqlFileInput.value = '';
         });
