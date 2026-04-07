@@ -93,7 +93,21 @@ html, body {
     padding-top: 14px;
 }
 
-.wb-icon { opacity: 0.9; font-size: 17px; }
+.wb-icon {
+    opacity: 0.9;
+    font-size: 17px;
+    border: 0;
+    background: transparent;
+    color: #ebedf2;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.wb-icon:hover,
+.wb-icon--active {
+    background: #2f86d2;
+}
 
 .wb-welcome {
     background: #f7f7f8;
@@ -114,6 +128,24 @@ html, body {
     margin-bottom: 12px;
 }
 .wb-connections h2 { margin: 0; font-size: 30px; color: #3a3f48; font-weight: 600; }
+.wb-home-panel {
+    max-width: 980px;
+    margin: 0 auto;
+    background: #fbfbfc;
+    border: 1px solid #d6dce6;
+    border-radius: 4px;
+    padding: 20px;
+}
+.wb-home-panel h2 {
+    margin: 0 0 10px;
+    color: #2f3744;
+}
+.wb-home-panel p {
+    margin: 0;
+}
+.wb-home-panel--hidden {
+    display: none;
+}
 
 .wb-mini-btn {
     width: 26px; height: 26px; border-radius: 50%;
@@ -341,7 +373,6 @@ html, body {
 .sql-token-string { color: #032f62; }
 .sql-token-number { color: #6f42c1; }
 .sql-token-comment { color: #6a737d; font-style: italic; }
-}
 
 .wb-output {
     background: #2a2f3a;

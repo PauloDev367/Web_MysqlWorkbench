@@ -5,14 +5,14 @@
 
     <div class="wb-layout">
         <aside class="wb-left-icons">
-            <div class="wb-icon">🛢️</div>
-            <div class="wb-icon">📁</div>
-            <div class="wb-icon">📊</div>
-            <div class="wb-icon">➜</div>
+            <button class="wb-icon wb-icon--active" data-home-nav="overview" title="Overview">🛢️</button>
+            <button class="wb-icon" data-home-nav="connections" title="Connections">📁</button>
+            <button class="wb-icon" data-home-nav="performance" title="Performance">📊</button>
+            <button class="wb-icon" data-home-nav="migration" title="Migration">➜</button>
         </aside>
 
         <main class="wb-welcome">
-            <section class="wb-welcome__hero">
+            <section class="wb-welcome__hero" data-home-section="overview">
                 <h1>Welcome to MySQL Workbench</h1>
                 <p>
                     Interface para modelagem e consultas SQL. Comece criando uma conexão ou abrindo uma existente.
@@ -24,7 +24,7 @@
                 </div>
             </section>
 
-            <section class="wb-connections">
+            <section class="wb-connections" data-home-section="connections">
                 <div class="wb-connections__header">
                     <h2>MySQL Connections</h2>
                     <div class="wb-conn-actions">
@@ -32,6 +32,16 @@
                     </div>
                 </div>
                 <div id="connectionsGrid" class="wb-conn-grid"></div>
+            </section>
+
+            <section class="wb-home-panel wb-home-panel--hidden" data-home-section="performance">
+                <h2>Performance Dashboard</h2>
+                <p>Painel básico para monitoramento (placeholder inicial).</p>
+            </section>
+
+            <section class="wb-home-panel wb-home-panel--hidden" data-home-section="migration">
+                <h2>Database Migration</h2>
+                <p>Ferramentas de migração/importação em implementação.</p>
             </section>
         </main>
     </div>

@@ -14,10 +14,36 @@
         const modal = document.getElementById('connectionModal');
         const form = document.getElementById('connectionForm');
         const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const navButtons = document.querySelectorAll('[data-home-nav]');
+        const sections = document.querySelectorAll('[data-home-section]');
 
         if (!grid || !newConnectionBtn || !modal || !form || !testConnectionBtn) {
             return;
         }
+
+        const activateHomeSection = (sectionName) => {
+            sections.forEach((section) => {
+                const isActive = section.getAttribute('data-home-section') === sectionName;
+                section.classList.toggle('wb-home-panel--hidden', !isActive && sectionName !== 'overview');
+                if (sectionName === 'overview') {
+                    const sectionType = section.getAttribute('data-home-section');
+                    const shouldShow = sectionType === 'overview' || sectionType === 'connections';
+                    section.classList.toggle('wb-home-panel--hidden', !shouldShow);
+                }
+            });
+
+            navButtons.forEach((button) => {
+                const isActive = button.getAttribute('data-home-nav') === sectionName;
+                button.classList.toggle('wb-icon--active', isActive);
+            });
+        };
+
+        navButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const sectionName = button.getAttribute('data-home-nav') || 'overview';
+                activateHomeSection(sectionName);
+            });
+        });
 
         const closeModalEls = modal.querySelectorAll('[data-close-modal]');
 
@@ -153,6 +179,8 @@
         renderConnections().catch(() => {
             grid.innerHTML = '<p>Falha ao carregar conexões.</p>';
         });
+
+        activateHomeSection('overview');
     };
 
     const setupEditorScreen = () => {
