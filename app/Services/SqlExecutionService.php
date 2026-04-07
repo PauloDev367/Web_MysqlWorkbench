@@ -66,10 +66,25 @@ final class SqlExecutionService
             ];
         } catch (Throwable $exception) {
             $duration = (int) round((microtime(true) - $start) * 1000);
+            $sqlState = null;
+            $driverCode = null;
+            $driverMessage = null;
+            if ($exception instanceof PDOException) {
+                $errorInfo = $exception->errorInfo;
+                if (is_array($errorInfo)) {
+                    $sqlState = isset($errorInfo[0]) ? (string) $errorInfo[0] : null;
+                    $driverCode = isset($errorInfo[1]) ? (string) $errorInfo[1] : null;
+                    $driverMessage = isset($errorInfo[2]) ? (string) $errorInfo[2] : null;
+                }
+            }
 
             return [
                 'success' => false,
                 'message' => $exception->getMessage(),
+                'error_type' => $exception::class,
+                'sql_state' => $sqlState,
+                'driver_code' => $driverCode,
+                'driver_message' => $driverMessage,
                 'columns' => [],
                 'rows' => [],
                 'affected_rows' => 0,

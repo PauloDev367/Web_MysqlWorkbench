@@ -28,8 +28,15 @@ final class SqlController extends Controller
             return;
         }
 
-        $schemas = $this->schemaService->listSchemas($connection);
-        $this->json(['data' => $schemas]);
+        try {
+            $schemas = $this->schemaService->listSchemas($connection);
+            $this->json(['data' => $schemas]);
+        } catch (Throwable $exception) {
+            $this->json([
+                'error' => $exception->getMessage(),
+                'error_type' => $exception::class,
+            ], 422);
+        }
     }
 
     /**

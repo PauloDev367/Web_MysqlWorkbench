@@ -272,11 +272,12 @@ html, body {
 .wb-editor-layout {
     height: calc(100vh - 28px);
     display: grid;
-    grid-template-columns: 280px 1fr;
+    --wb-schemas-width: 280px;
+    grid-template-columns: var(--wb-schemas-width) 6px 1fr;
     background: var(--wb-bg-dark-2);
 }
 .wb-editor-layout--schemas-hidden {
-    grid-template-columns: 0 1fr;
+    grid-template-columns: 0 0 1fr;
 }
 
 .wb-nav {
@@ -294,10 +295,44 @@ html, body {
     visibility: hidden;
 }
 
+.wb-panel-resizer {
+    user-select: none;
+    background: transparent;
+    position: relative;
+    z-index: 12;
+}
+.wb-panel-resizer:hover,
+.wb-panel-resizer.is-dragging {
+    background: rgba(74, 143, 212, 0.18);
+}
+.wb-panel-resizer--vertical {
+    grid-column: 2;
+    grid-row: 1;
+    cursor: col-resize;
+}
+.wb-panel-resizer--horizontal {
+    cursor: row-resize;
+    height: 6px;
+}
+.wb-panel-resizer--horizontal::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 2px;
+    width: 22px;
+    height: 2px;
+    border-radius: 2px;
+    background: #6b7280;
+}
+
 .wb-nav__tabs {
     height: 32px;
     display: flex;
+    gap: 4px;
+    align-items: center;
     border-bottom: 1px solid var(--wb-border-dark);
+    padding: 0 4px;
 }
 .wb-nav__tabs button {
     border: 0;
@@ -307,11 +342,41 @@ html, body {
     font-size: 11px;
 }
 .wb-nav__tabs .is-active { background: #383d4b; }
+#goHomeBtn {
+    background: #1d4ed8;
+    color: #eff6ff;
+}
+#goHomeBtn:hover {
+    background: #2563eb;
+}
+#refreshSchemasBtn {
+    margin-left: auto;
+}
 .wb-nav__content { overflow: auto; padding: 8px; font-size: 12px; }
 
 .wb-tree, .wb-tree ul { list-style: none; margin: 0; padding-left: 14px; }
 .wb-tree summary { cursor: pointer; margin: 4px 0; }
 .wb-tree li { margin: 3px 0; }
+.wb-tree-icon {
+    display: inline-block;
+    width: 14px;
+    margin-right: 6px;
+    text-align: center;
+    font-size: 11px;
+    opacity: 0.92;
+}
+.wb-tree-icon--schema { color: #7dd3fc; }
+.wb-tree-icon--group { color: #c4b5fd; }
+.wb-tree-icon--table { color: #93c5fd; }
+.wb-tree-icon--column-group,
+.wb-tree-icon--column { color: #86efac; }
+.wb-tree-icon--view { color: #fcd34d; }
+.wb-tree-icon--procedure { color: #f9a8d4; }
+.wb-tree-icon--function { color: #fca5a5; }
+.wb-tree-leaf {
+    display: flex;
+    align-items: center;
+}
 .wb-schema-item.is-selected-schema {
     color: #7dc4ff;
     font-weight: 600;
@@ -391,9 +456,12 @@ html, body {
 
 .wb-editor-main {
     display: grid;
-    grid-template-rows: auto 34px 38px 1fr 265px 165px;
+    --wb-tab-height: 28px;
+    --wb-result-height: 265px;
+    --wb-output-height: 165px;
+    grid-template-rows: auto 34px 38px 1fr 6px var(--wb-result-height) 6px var(--wb-output-height);
     min-height: 0;
-    grid-column: 2;
+    grid-column: 3;
 }
 .wb-error-banner {
     grid-row: 1;
@@ -415,6 +483,7 @@ html, body {
     border-bottom: 1px solid var(--wb-border-dark);
     background: #2b2f3a;
     padding-left: 6px;
+    position: relative;
 }
 .wb-query-tabs {
     display: flex;
@@ -427,7 +496,7 @@ html, body {
     border-bottom: 0;
     background: #343948;
     color: #dbe1ed;
-    height: 28px;
+    height: var(--wb-tab-height);
     font-size: 12px;
     padding: 0 10px;
 }
@@ -524,7 +593,7 @@ html, body {
 .sql-token-comment { color: #6a737d; font-style: italic; }
 
 .wb-output {
-    grid-row: 6;
+    grid-row: 8;
     background: #2a2f3a;
     color: #eef2f9;
     overflow: auto;
@@ -533,7 +602,7 @@ html, body {
     display: none;
 }
 .wb-result-grid {
-    grid-row: 5;
+    grid-row: 6;
     background: #1f2430;
     color: #dce1eb;
     overflow: auto;
@@ -562,3 +631,7 @@ th, td {
     color: #e8edf7;
 }
 th { color: #d8e0ef; font-weight: 600; }
+.wb-output-row--error td {
+    background: rgba(185, 28, 28, 0.16);
+    color: #fecaca;
+}

@@ -2,7 +2,14 @@
     const parseResponse = async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(payload.error || 'Erro ao processar requisição.');
+            const details = [
+                payload.error || payload.message || 'Erro ao processar requisição.',
+                payload.sql_state ? `SQLSTATE: ${payload.sql_state}` : '',
+                payload.driver_code ? `Driver Code: ${payload.driver_code}` : '',
+                payload.driver_message || '',
+                payload.error_type ? `Type: ${payload.error_type}` : '',
+            ].filter(Boolean).join(' | ');
+            throw new Error(details || 'Erro ao processar requisição.');
         }
 
         return payload;
@@ -281,6 +288,7 @@
     const setupEditorScreen = () => {
         const menubar = document.querySelector('.wb-menubar[data-connection-id]');
         const editorLayout = document.querySelector('.wb-editor-layout');
+        const editorMain = document.querySelector('.wb-editor-main');
         const navPanel = document.querySelector('.wb-nav');
         const outputPanel = document.querySelector('.wb-output');
         const sqlEditor = document.getElementById('sqlEditor');
@@ -288,6 +296,8 @@
         const runAllBtn = document.getElementById('runAllBtn');
         const outputRows = document.getElementById('actionOutputRows');
         const schemaTree = document.getElementById('schemaTree');
+        const goHomeBtn = document.getElementById('goHomeBtn');
+        const refreshSchemasBtn = document.getElementById('refreshSchemasBtn');
         const connectionErrorBanner = document.getElementById('connectionErrorBanner');
         const resultGridHead = document.getElementById('resultGridHead');
         const resultGridRows = document.getElementById('resultGridRows');
@@ -295,25 +305,81 @@
         const queryTabs = document.getElementById('queryTabs');
         const newTabBtn = document.getElementById('newTabBtn');
         const closeTabBtn = document.getElementById('closeTabBtn');
+        const schemasPanelResizer = document.getElementById('schemasPanelResizer');
+        const resultGridResizer = document.getElementById('resultGridResizer');
+        const actionOutputResizer = document.getElementById('actionOutputResizer');
         const sqlFileInput = document.getElementById('sqlFileInput');
 
-        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !connectionErrorBanner || !resultGridHead || !resultGridRows || !sqlHighlight || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
+        if (!menubar || !editorLayout || !editorMain || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !goHomeBtn || !refreshSchemasBtn || !connectionErrorBanner || !resultGridHead || !resultGridRows || !sqlHighlight || !queryTabs || !newTabBtn || !closeTabBtn || !schemasPanelResizer || !resultGridResizer || !actionOutputResizer || !sqlFileInput) {
             return;
         }
+
+        const outputErrorMenu = document.createElement('div');
+        outputErrorMenu.className = 'wb-context-menu wb-context-menu--hidden';
+        outputErrorMenu.innerHTML = '<button type="button" data-output-action="copy-error">Copiar mensagem de erro</button>';
+        document.body.appendChild(outputErrorMenu);
+        let outputErrorMessage = '';
+
+        const hideOutputErrorMenu = () => {
+            outputErrorMenu.classList.add('wb-context-menu--hidden');
+            outputErrorMessage = '';
+        };
 
         const appendOutput = (action, message) => {
             const now = new Date();
             const time = now.toLocaleTimeString('pt-BR');
+            const fullMessage = String(message);
+            const isError = /(erro|error|falha|exception|sqlstate|doesn't exist|unknown column|syntax)/i.test(fullMessage);
             const row = document.createElement('tr');
+            if (isError) {
+                row.classList.add('wb-output-row--error');
+                row.setAttribute('data-output-error', fullMessage);
+            }
             row.innerHTML = `
                 <td>${outputRows.children.length + 1}</td>
                 <td>${time}</td>
                 <td>${action}</td>
-                <td>${message}</td>
+                <td title="${fullMessage.replace(/"/g, '&quot;')}">${isError ? `⚠ ${fullMessage}` : fullMessage}</td>
                 <td>${Math.floor(Math.random() * 30) + 1} ms</td>
             `;
             outputRows.prepend(row);
+
+            if (isError) {
+                row.addEventListener('contextmenu', (event) => {
+                    event.preventDefault();
+                    outputErrorMessage = row.getAttribute('data-output-error') || '';
+                    if (!outputErrorMessage) {
+                        return;
+                    }
+                    outputErrorMenu.style.left = `${event.clientX}px`;
+                    outputErrorMenu.style.top = `${event.clientY}px`;
+                    outputErrorMenu.classList.remove('wb-context-menu--hidden');
+                });
+            }
         };
+
+        outputErrorMenu.addEventListener('click', async (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+            if (target.getAttribute('data-output-action') !== 'copy-error') {
+                return;
+            }
+            if (!outputErrorMessage) {
+                return;
+            }
+            await copyToClipboard(outputErrorMessage);
+            appendOutput('Action Output', 'Mensagem de erro copiada.');
+            hideOutputErrorMenu();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (event.target instanceof Node && outputErrorMenu.contains(event.target)) {
+                return;
+            }
+            hideOutputErrorMenu();
+        });
 
         const connectionId = Number(menubar.getAttribute('data-connection-id') || '0');
         if (!connectionId) {
@@ -337,6 +403,16 @@
         const tabState = [
             { title: 'Query 1', sql: sqlEditor.value, fileHandle: null, isDirty: false },
         ];
+        const minSchemasWidth = 180;
+        const maxSchemasWidth = 520;
+        const minResultHeight = 120;
+        const maxResultHeight = 380;
+        const minOutputHeight = 100;
+        const maxOutputHeight = 280;
+        const defaultSchemasWidth = 280;
+        const defaultResultHeight = 265;
+        const defaultOutputHeight = 165;
+        const panelLayoutStorageKey = `wb-editor-panel-layout-${connectionId}`;
         let activeTab = 0;
         let activeSchema = '';
         let tableContextMenuTarget = null;
@@ -587,6 +663,105 @@
             appendOutput('Tabs', `Nova aba Query ${nextIndex} criada.`);
         };
 
+        const bindPanelResizers = () => {
+            const savePanelLayout = () => {
+                const payload = {
+                    schemasWidth: Number.parseInt(getComputedStyle(editorLayout).getPropertyValue('--wb-schemas-width'), 10) || defaultSchemasWidth,
+                    resultHeight: Number.parseInt(getComputedStyle(editorMain).getPropertyValue('--wb-result-height'), 10) || defaultResultHeight,
+                    outputHeight: Number.parseInt(getComputedStyle(editorMain).getPropertyValue('--wb-output-height'), 10) || defaultOutputHeight,
+                };
+                localStorage.setItem(panelLayoutStorageKey, JSON.stringify(payload));
+            };
+
+            const applyPanelLayout = (layout) => {
+                const schemasWidth = Math.max(minSchemasWidth, Math.min(maxSchemasWidth, Number(layout.schemasWidth) || defaultSchemasWidth));
+                const resultHeight = Math.max(minResultHeight, Math.min(maxResultHeight, Number(layout.resultHeight) || defaultResultHeight));
+                const outputHeight = Math.max(minOutputHeight, Math.min(maxOutputHeight, Number(layout.outputHeight) || defaultOutputHeight));
+                editorLayout.style.setProperty('--wb-schemas-width', `${schemasWidth}px`);
+                editorMain.style.setProperty('--wb-result-height', `${resultHeight}px`);
+                editorMain.style.setProperty('--wb-output-height', `${outputHeight}px`);
+            };
+
+            const restorePanelLayout = () => {
+                try {
+                    const raw = localStorage.getItem(panelLayoutStorageKey);
+                    if (!raw) {
+                        applyPanelLayout({});
+                        return;
+                    }
+                    applyPanelLayout(JSON.parse(raw));
+                } catch (error) {
+                    applyPanelLayout({});
+                }
+            };
+
+            const resetPanelLayout = () => {
+                localStorage.removeItem(panelLayoutStorageKey);
+                applyPanelLayout({});
+            };
+
+            schemasPanelResizer.addEventListener('pointerdown', (event) => {
+                if (navPanel.classList.contains('wb-nav--hidden')) {
+                    return;
+                }
+                event.preventDefault();
+                schemasPanelResizer.classList.add('is-dragging');
+                const startX = event.clientX;
+                const startWidth = navPanel.getBoundingClientRect().width;
+                document.body.style.cursor = 'col-resize';
+
+                const onMove = (moveEvent) => {
+                    const delta = moveEvent.clientX - startX;
+                    const nextWidth = Math.max(minSchemasWidth, Math.min(maxSchemasWidth, startWidth + delta));
+                    editorLayout.style.setProperty('--wb-schemas-width', `${nextWidth}px`);
+                };
+
+                const onUp = () => {
+                    document.body.style.cursor = '';
+                    schemasPanelResizer.classList.remove('is-dragging');
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    savePanelLayout();
+                };
+
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+            });
+
+            const bindHorizontal = (element, variableName, minValue, maxValue) => {
+                element.addEventListener('pointerdown', (event) => {
+                    event.preventDefault();
+                    element.classList.add('is-dragging');
+                    const startY = event.clientY;
+                    const current = Number.parseInt(getComputedStyle(editorMain).getPropertyValue(variableName), 10) || minValue;
+                    document.body.style.cursor = 'row-resize';
+
+                    const onMove = (moveEvent) => {
+                        const delta = moveEvent.clientY - startY;
+                        const nextHeight = Math.max(minValue, Math.min(maxValue, current - delta));
+                        editorMain.style.setProperty(variableName, `${nextHeight}px`);
+                    };
+
+                    const onUp = () => {
+                        document.body.style.cursor = '';
+                        element.classList.remove('is-dragging');
+                        window.removeEventListener('pointermove', onMove);
+                        window.removeEventListener('pointerup', onUp);
+                        savePanelLayout();
+                    };
+
+                    window.addEventListener('pointermove', onMove);
+                    window.addEventListener('pointerup', onUp);
+                });
+            };
+
+            bindHorizontal(resultGridResizer, '--wb-result-height', minResultHeight, maxResultHeight);
+            bindHorizontal(actionOutputResizer, '--wb-output-height', minOutputHeight, maxOutputHeight);
+
+            restorePanelLayout();
+            return { resetPanelLayout };
+        };
+
         const closeCurrentTab = () => {
             if (tabState.length === 1) {
                 appendOutput('Tabs', 'Não é possível fechar a última aba.');
@@ -725,8 +900,53 @@
         const executeSql = async (action, sql) => {
             const payload = await executeSqlRaw(sql);
             hideConnectionError();
+            syncActiveSchemaFromSql(sql, payload);
             renderResultGrid(payload.columns || [], payload.rows || []);
             appendOutput(action, `${payload.message} (${payload.duration_ms} ms)`);
+        };
+
+        const extractUseSchema = (sql) => {
+            const regex = /\bUSE\s+`?([a-zA-Z0-9_]+)`?\s*;?/gi;
+            let match = null;
+            let found = '';
+            while ((match = regex.exec(sql)) !== null) {
+                found = String(match[1] || '');
+            }
+            return found;
+        };
+
+        const setActiveSchemaSelection = (schemaName, logMessage = false) => {
+            if (!schemaName) {
+                return;
+            }
+            activeSchema = schemaName;
+            let foundElement = null;
+            schemaTree.querySelectorAll('.wb-schema-item').forEach((item) => {
+                item.classList.remove('is-selected-schema');
+                if (item.getAttribute('data-schema-name') === schemaName) {
+                    foundElement = item;
+                }
+            });
+            if (foundElement instanceof HTMLElement) {
+                foundElement.classList.add('is-selected-schema');
+            }
+            if (typeof saveUiState === 'function') {
+                saveUiState();
+            }
+            if (logMessage) {
+                appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
+            }
+        };
+
+        const syncActiveSchemaFromSql = (sql, payload) => {
+            if (!payload || payload.success !== true) {
+                return;
+            }
+            const detectedSchema = extractUseSchema(sql);
+            if (!detectedSchema) {
+                return;
+            }
+            setActiveSchemaSelection(detectedSchema, true);
         };
 
         const supportsFileSystemAccess = () => (
@@ -869,22 +1089,26 @@
             schemaTree.innerHTML = schemas.map((schema) => `
                 <li>
                     <details data-node-key="schema:${schema.name}" ${isOpen(`schema:${schema.name}`)}>
-                        <summary class="wb-schema-item ${activeSchema === schema.name ? 'is-selected-schema' : ''}" data-schema-name="${schema.name}">${schema.name}</summary>
+                        <summary class="wb-schema-item ${activeSchema === schema.name ? 'is-selected-schema' : ''}" data-schema-name="${schema.name}">
+                            <span class="wb-tree-icon wb-tree-icon--schema">🗃</span>${schema.name}
+                        </summary>
                         <ul>
                             <li>
                                 <details data-node-key="schema:${schema.name}:tables" ${isOpen(`schema:${schema.name}:tables`, true)}>
-                                    <summary>Tables</summary>
+                                    <summary><span class="wb-tree-icon wb-tree-icon--group">🗂</span>Tables</summary>
                                     <ul>
                                         ${(schema.tables || []).map((table) => `
                                             <li>
                                                 <details data-node-key="schema:${schema.name}:table:${table.name}" ${isOpen(`schema:${schema.name}:table:${table.name}`)}>
-                                                    <summary class="wb-table-item" data-schema-name="${schema.name}" data-table-name="${table.name}" data-table-columns="${encodeURIComponent(JSON.stringify(table.columns || []))}">${table.name}</summary>
+                                                    <summary class="wb-table-item" data-schema-name="${schema.name}" data-table-name="${table.name}" data-table-columns="${encodeURIComponent(JSON.stringify(table.columns || []))}">
+                                                        <span class="wb-tree-icon wb-tree-icon--table">▦</span>${table.name}
+                                                    </summary>
                                                     <ul>
                                                         <li>
                                                             <details data-node-key="schema:${schema.name}:table:${table.name}:columns" ${isOpen(`schema:${schema.name}:table:${table.name}:columns`, true)}>
-                                                                <summary>Columns</summary>
+                                                                <summary><span class="wb-tree-icon wb-tree-icon--column-group">◫</span>Columns</summary>
                                                                 <ul>
-                                                                    ${(table.columns || []).map((column) => `<li>${column}</li>`).join('') || '<li>(vazio)</li>'}
+                                                                    ${(table.columns || []).map((column) => `<li class="wb-tree-leaf wb-tree-leaf--column"><span class="wb-tree-icon wb-tree-icon--column">◇</span>${column}</li>`).join('') || '<li>(vazio)</li>'}
                                                                 </ul>
                                                             </details>
                                                         </li>
@@ -897,25 +1121,25 @@
                             </li>
                             <li>
                                 <details data-node-key="schema:${schema.name}:views" ${isOpen(`schema:${schema.name}:views`)}>
-                                    <summary>Views</summary>
+                                    <summary><span class="wb-tree-icon wb-tree-icon--view">▤</span>Views</summary>
                                     <ul>
-                                        ${(schema.views || []).map((view) => `<li>${view}</li>`).join('') || '<li>(vazio)</li>'}
+                                        ${(schema.views || []).map((view) => `<li class="wb-tree-leaf"><span class="wb-tree-icon wb-tree-icon--view">▤</span>${view}</li>`).join('') || '<li>(vazio)</li>'}
                                     </ul>
                                 </details>
                             </li>
                             <li>
                                 <details data-node-key="schema:${schema.name}:procedures" ${isOpen(`schema:${schema.name}:procedures`)}>
-                                    <summary>Stored Procedures</summary>
+                                    <summary><span class="wb-tree-icon wb-tree-icon--procedure">ƒ</span>Stored Procedures</summary>
                                     <ul>
-                                        ${(schema.procedures || []).map((procedure) => `<li>${procedure}</li>`).join('') || '<li>(vazio)</li>'}
+                                        ${(schema.procedures || []).map((procedure) => `<li class="wb-tree-leaf"><span class="wb-tree-icon wb-tree-icon--procedure">ƒ</span>${procedure}</li>`).join('') || '<li>(vazio)</li>'}
                                     </ul>
                                 </details>
                             </li>
                             <li>
                                 <details data-node-key="schema:${schema.name}:functions" ${isOpen(`schema:${schema.name}:functions`)}>
-                                    <summary>Functions</summary>
+                                    <summary><span class="wb-tree-icon wb-tree-icon--function">λ</span>Functions</summary>
                                     <ul>
-                                        ${(schema.functions || []).map((fn) => `<li>${fn}</li>`).join('') || '<li>(vazio)</li>'}
+                                        ${(schema.functions || []).map((fn) => `<li class="wb-tree-leaf"><span class="wb-tree-icon wb-tree-icon--function">λ</span>${fn}</li>`).join('') || '<li>(vazio)</li>'}
                                     </ul>
                                 </details>
                             </li>
@@ -931,12 +1155,7 @@
                     if (!schemaName) {
                         return;
                     }
-
-                    activeSchema = schemaName;
-                    schemaTree.querySelectorAll('.wb-schema-item').forEach((item) => item.classList.remove('is-selected-schema'));
-                    element.classList.add('is-selected-schema');
-                    saveUiState();
-                    appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
+                    setActiveSchemaSelection(schemaName, true);
                 });
             });
 
@@ -1290,6 +1509,15 @@
             appendOutput('Scripting', 'SQL formatado (modo básico).');
         };
 
+        const panelLayoutControls = bindPanelResizers();
+        goHomeBtn.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+        refreshSchemasBtn.addEventListener('click', async () => {
+            await renderSchemas({ force: true });
+            appendOutput('Database', 'Schemas atualizados (forçado).');
+        });
+
         menubar.addEventListener('click', async (event) => {
             const target = event.target;
             if (!(target instanceof HTMLElement)) {
@@ -1360,6 +1588,10 @@
                     break;
                 case 'view.toggle-output':
                     outputPanel.classList.toggle('wb-output--hidden');
+                    break;
+                case 'view.reset-panel-layout':
+                    panelLayoutControls.resetPanelLayout();
+                    appendOutput('View', 'Layout dos painéis restaurado para o padrão.');
                     break;
                 case 'query.run-selected':
                     await runSelected();

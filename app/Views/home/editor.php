@@ -25,6 +25,7 @@
                 <div class="wb-menu__dropdown">
                     <button data-menu-action="view.toggle-schemas">Toggle Schemas Panel</button>
                     <button data-menu-action="view.toggle-output">Toggle Output Panel</button>
+                    <button data-menu-action="view.reset-panel-layout">Reset Panel Layout</button>
                 </div>
             </div>
             <div class="wb-menu">
@@ -74,12 +75,15 @@
     <div class="wb-editor-layout">
         <aside class="wb-nav">
             <div class="wb-nav__tabs">
+                <button id="goHomeBtn" title="Voltar para Home">⌂</button>
                 <button class="is-active">SCHEMAS</button>
+                <button id="refreshSchemasBtn" title="Recarregar bancos e tabelas">↻</button>
             </div>
             <div class="wb-nav__content">
                 <ul id="schemaTree" class="wb-tree"></ul>
             </div>
         </aside>
+        <div id="schemasPanelResizer" class="wb-panel-resizer wb-panel-resizer--vertical" title="Ajustar largura do painel lateral"></div>
 
         <section class="wb-editor-main">
             <div id="connectionErrorBanner" class="wb-error-banner wb-error-banner--hidden"></div>
@@ -104,6 +108,7 @@
                     <textarea id="sqlEditor" spellcheck="false">SELECT * FROM users LIMIT 50;</textarea>
                 </div>
             </div>
+            <div id="resultGridResizer" class="wb-panel-resizer wb-panel-resizer--horizontal" title="Ajustar altura do Result Grid"></div>
 
             <div class="wb-result-grid">
                 <div class="wb-output__title">Result Grid</div>
@@ -116,6 +121,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="actionOutputResizer" class="wb-panel-resizer wb-panel-resizer--horizontal" title="Ajustar altura do Action Output"></div>
 
             <div class="wb-output">
                 <div class="wb-output__title">Action Output</div>
