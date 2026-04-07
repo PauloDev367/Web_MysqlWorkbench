@@ -82,6 +82,7 @@
         </aside>
 
         <section class="wb-editor-main">
+            <div id="connectionErrorBanner" class="wb-error-banner wb-error-banner--hidden"></div>
             <div class="wb-query-tabbar">
                 <div id="queryTabs" class="wb-query-tabs"></div>
                 <button id="newTabBtn">+</button>

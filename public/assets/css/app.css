@@ -319,9 +319,19 @@ html, body {
 
 .wb-editor-main {
     display: grid;
-    grid-template-rows: 34px 38px 1fr 170px 165px;
+    grid-template-rows: auto 34px 38px 1fr 170px 165px;
     min-height: 0;
     grid-column: 2;
+}
+.wb-error-banner {
+    padding: 8px 10px;
+    background: #7f1d1d;
+    color: #fecaca;
+    border-bottom: 1px solid #991b1b;
+    font-size: 12px;
+}
+.wb-error-banner--hidden {
+    display: none;
 }
 
 .wb-query-tabbar {

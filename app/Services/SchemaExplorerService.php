@@ -38,7 +38,7 @@ final class SchemaExplorerService
     }
 
     /**
-     * @return array<int, string>
+     * @return array<int, array{name: string, columns: array<int, string>}>
      */
     private function listTables(PDO $pdo, string $schemaName): array
     {
@@ -50,9 +50,39 @@ final class SchemaExplorerService
              ORDER BY table_name"
         );
         $stmt->execute(['schemaName' => $schemaName]);
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $result = [];
 
-        return array_map(static fn (mixed $value): string => (string) $value, $tables ?: []);
+        foreach ($tables as $tableName) {
+            $name = (string) $tableName;
+            $result[] = [
+                'name' => $name,
+                'columns' => $this->listColumns($pdo, $schemaName, $name),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function listColumns(PDO $pdo, string $schemaName, string $tableName): array
+    {
+        $stmt = $pdo->prepare(
+            "SELECT column_name
+             FROM information_schema.columns
+             WHERE table_schema = :schemaName
+               AND table_name = :tableName
+             ORDER BY ordinal_position"
+        );
+        $stmt->execute([
+            'schemaName' => $schemaName,
+            'tableName' => $tableName,
+        ]);
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        return array_map(static fn (mixed $value): string => (string) $value, $columns ?: []);
     }
 
     /**

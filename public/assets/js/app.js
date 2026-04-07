@@ -288,6 +288,7 @@
         const runAllBtn = document.getElementById('runAllBtn');
         const outputRows = document.getElementById('actionOutputRows');
         const schemaTree = document.getElementById('schemaTree');
+        const connectionErrorBanner = document.getElementById('connectionErrorBanner');
         const resultGridHead = document.getElementById('resultGridHead');
         const resultGridRows = document.getElementById('resultGridRows');
         const sqlHighlight = document.getElementById('sqlHighlight');
@@ -296,7 +297,7 @@
         const closeTabBtn = document.getElementById('closeTabBtn');
         const sqlFileInput = document.getElementById('sqlFileInput');
 
-        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !sqlHighlight || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
+        if (!menubar || !editorLayout || !navPanel || !outputPanel || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !connectionErrorBanner || !resultGridHead || !resultGridRows || !sqlHighlight || !queryTabs || !newTabBtn || !closeTabBtn || !sqlFileInput) {
             return;
         }
 
@@ -460,6 +461,16 @@
         newTabBtn.addEventListener('click', createNewTab);
         closeTabBtn.addEventListener('click', closeCurrentTab);
 
+        const showConnectionError = (message) => {
+            connectionErrorBanner.textContent = message;
+            connectionErrorBanner.classList.remove('wb-error-banner--hidden');
+        };
+
+        const hideConnectionError = () => {
+            connectionErrorBanner.textContent = '';
+            connectionErrorBanner.classList.add('wb-error-banner--hidden');
+        };
+
         const executeSql = async (action, sql) => {
             const response = await fetch('/api/sql/execute', {
                 method: 'POST',
@@ -468,6 +479,7 @@
             });
 
             const payload = await parseResponse(response);
+            hideConnectionError();
             renderResultGrid(payload.columns || [], payload.rows || []);
             appendOutput(action, `${payload.message} (${payload.duration_ms} ms)`);
         };
@@ -490,7 +502,23 @@
                                 <details open>
                                     <summary>Tables</summary>
                                     <ul>
-                                        ${(schema.tables || []).map((table) => `<li>${table}</li>`).join('')}
+                                        ${(schema.tables || []).map((table) => `
+                                            <li>
+                                                <details>
+                                                    <summary>${table.name}</summary>
+                                                    <ul>
+                                                        <li>
+                                                            <details open>
+                                                                <summary>Columns</summary>
+                                                                <ul>
+                                                                    ${(table.columns || []).map((column) => `<li>${column}</li>`).join('') || '<li>(vazio)</li>'}
+                                                                </ul>
+                                                            </details>
+                                                        </li>
+                                                    </ul>
+                                                </details>
+                                            </li>
+                                        `).join('') || '<li>(vazio)</li>'}
                                     </ul>
                                 </details>
                             </li>
@@ -537,6 +565,7 @@
                     appendOutput('Schema', `Schema ativo: ${activeSchema} (equivalente a USE ${activeSchema}).`);
                 });
             });
+            hideConnectionError();
         };
 
         const runSelected = async () => {
@@ -553,6 +582,7 @@
                 await executeSql('Execute Selected', selectedSql);
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Falha ao executar SQL selecionado.';
+                showConnectionError(`Erro de conexão/execução: ${message}`);
                 appendOutput('Execute Selected', message);
             }
         };
@@ -568,6 +598,7 @@
                 await executeSql('Execute All', sql);
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Falha ao executar SQL.';
+                showConnectionError(`Erro de conexão/execução: ${message}`);
                 appendOutput('Execute All', message);
             }
         };
@@ -649,6 +680,7 @@
                 await executeSql(action, sqlToRun);
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Falha ao executar via atalho.';
+                showConnectionError(`Erro de conexão/execução: ${message}`);
                 appendOutput(action, message);
             }
         });
@@ -803,6 +835,7 @@
 
         renderSchemas().catch((error) => {
             const message = error instanceof Error ? error.message : 'Falha ao carregar schemas.';
+            showConnectionError(`Falha ao conectar no banco: ${message}`);
             appendOutput('Load Schemas', message);
         });
         renderTabs();
