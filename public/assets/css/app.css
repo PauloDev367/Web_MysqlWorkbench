@@ -352,6 +352,42 @@ html, body {
 .wb-context-submenu--hidden {
     display: none;
 }
+.wb-autocomplete {
+    position: absolute;
+    min-width: 240px;
+    max-width: 360px;
+    max-height: 260px;
+    overflow: auto;
+    background: #2f3441;
+    border: 1px solid #4a5161;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    z-index: 60;
+}
+.wb-autocomplete--hidden {
+    display: none;
+}
+.wb-autocomplete__item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #e6eaf2;
+    text-align: left;
+    padding: 7px 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    cursor: pointer;
+}
+.wb-autocomplete__item small {
+    color: #9ca3af;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+.wb-autocomplete__item:hover,
+.wb-autocomplete__item.is-active {
+    background: #44506a;
+}
 
 .wb-editor-main {
     display: grid;

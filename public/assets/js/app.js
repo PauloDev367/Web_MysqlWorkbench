@@ -340,6 +340,17 @@
         let activeTab = 0;
         let activeSchema = '';
         let tableContextMenuTarget = null;
+        let schemaCatalog = {
+            schemas: [],
+            tables: [],
+            columns: [],
+            views: [],
+            procedures: [],
+            functions: [],
+        };
+        let autocompleteItems = [];
+        let autocompleteIndex = 0;
+        let autocompleteRange = null;
 
         const escapeHtml = (value) => value
             .replace(/&/g, '&amp;')
@@ -361,6 +372,157 @@
             sqlHighlight.innerHTML = highlightSql(sql);
             sqlHighlight.scrollTop = sqlEditor.scrollTop;
             sqlHighlight.scrollLeft = sqlEditor.scrollLeft;
+        };
+
+        const autocompleteEl = document.createElement('div');
+        autocompleteEl.className = 'wb-autocomplete wb-autocomplete--hidden';
+        sqlEditor.parentElement?.appendChild(autocompleteEl);
+
+        const hideAutocomplete = () => {
+            autocompleteEl.classList.add('wb-autocomplete--hidden');
+            autocompleteItems = [];
+            autocompleteIndex = 0;
+            autocompleteRange = null;
+        };
+
+        const extractTokenRange = () => {
+            const cursor = sqlEditor.selectionStart;
+            const value = sqlEditor.value;
+            let start = cursor;
+            while (start > 0 && /[A-Za-z0-9_.$`]/.test(value[start - 1])) {
+                start -= 1;
+            }
+
+            const rawToken = value.slice(start, cursor);
+            const token = rawToken.replace(/`/g, '').toLowerCase();
+            return { start, end: cursor, token };
+        };
+
+        const getCaretPosition = () => {
+            const mirror = document.createElement('div');
+            const style = window.getComputedStyle(sqlEditor);
+            const properties = [
+                'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
+                'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+                'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+                'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
+                'fontSizeAdjust', 'lineHeight', 'fontFamily', 'textAlign', 'textTransform',
+                'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing',
+            ];
+            properties.forEach((prop) => {
+                mirror.style[prop] = style[prop];
+            });
+            mirror.style.position = 'absolute';
+            mirror.style.visibility = 'hidden';
+            mirror.style.whiteSpace = 'pre-wrap';
+            mirror.style.wordWrap = 'break-word';
+            mirror.style.left = '-9999px';
+            document.body.appendChild(mirror);
+
+            const value = sqlEditor.value;
+            const cursor = sqlEditor.selectionStart;
+            mirror.textContent = value.slice(0, cursor);
+            const span = document.createElement('span');
+            span.textContent = value.slice(cursor) || '.';
+            mirror.appendChild(span);
+            const coords = {
+                left: span.offsetLeft - sqlEditor.scrollLeft + Number.parseFloat(style.paddingLeft),
+                top: span.offsetTop - sqlEditor.scrollTop + Number.parseFloat(style.paddingTop),
+            };
+            mirror.remove();
+            return coords;
+        };
+
+        const renderAutocomplete = () => {
+            if (!autocompleteItems.length) {
+                hideAutocomplete();
+                return;
+            }
+
+            autocompleteEl.innerHTML = autocompleteItems.map((item, idx) => `
+                <button type="button" class="wb-autocomplete__item ${idx === autocompleteIndex ? 'is-active' : ''}" data-autocomplete-index="${idx}">
+                    <span>${item.label}</span>
+                    <small>${item.type}</small>
+                </button>
+            `).join('');
+            autocompleteEl.classList.remove('wb-autocomplete--hidden');
+
+            const caret = getCaretPosition();
+            autocompleteEl.style.left = `${Math.max(8, caret.left)}px`;
+            autocompleteEl.style.top = `${Math.max(8, caret.top + 24)}px`;
+
+            autocompleteEl.querySelectorAll('[data-autocomplete-index]').forEach((element) => {
+                element.addEventListener('click', () => {
+                    const idx = Number(element.getAttribute('data-autocomplete-index') || '0');
+                    autocompleteIndex = idx;
+                    applyAutocomplete();
+                });
+            });
+        };
+
+        const applyAutocomplete = () => {
+            const selected = autocompleteItems[autocompleteIndex];
+            if (!selected || !autocompleteRange) {
+                hideAutocomplete();
+                return;
+            }
+
+            const value = sqlEditor.value;
+            const before = value.slice(0, autocompleteRange.start);
+            const after = value.slice(autocompleteRange.end);
+            const insertText = selected.insertText;
+            sqlEditor.value = `${before}${insertText}${after}`;
+            const nextPos = before.length + insertText.length;
+            sqlEditor.selectionStart = nextPos;
+            sqlEditor.selectionEnd = nextPos;
+            tabState[activeTab].sql = sqlEditor.value;
+            refreshSqlHighlight();
+            hideAutocomplete();
+        };
+
+        const buildAutocompleteItems = (token) => {
+            const keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'ON', 'GROUP BY', 'ORDER BY', 'LIMIT', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'TABLE', 'VIEW', 'USE'];
+            const result = [];
+            const pushItems = (items, type) => {
+                items.forEach((item) => {
+                    if (!token || item.toLowerCase().includes(token)) {
+                        result.push({
+                            label: item,
+                            insertText: item,
+                            type,
+                        });
+                    }
+                });
+            };
+
+            pushItems(keywords, 'keyword');
+            pushItems(schemaCatalog.schemas, 'schema');
+            pushItems(schemaCatalog.tables, 'table');
+            pushItems(schemaCatalog.columns, 'column');
+            pushItems(schemaCatalog.views, 'view');
+            pushItems(schemaCatalog.procedures, 'procedure');
+            pushItems(schemaCatalog.functions, 'function');
+
+            const seen = new Set();
+            return result.filter((item) => {
+                const key = `${item.type}:${item.label.toLowerCase()}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).slice(0, 18);
+        };
+
+        const updateAutocomplete = (force = false) => {
+            const range = extractTokenRange();
+            if (!force && range.token.length < 1) {
+                hideAutocomplete();
+                return;
+            }
+
+            autocompleteRange = range;
+            autocompleteItems = buildAutocompleteItems(force ? '' : range.token);
+            autocompleteIndex = 0;
+            renderAutocomplete();
         };
 
         const renderTabs = () => {
@@ -566,6 +728,14 @@
             const response = await fetch(`/api/connections/${connectionId}/schemas`);
             const payload = await parseResponse(response);
             const schemas = Array.isArray(payload.data) ? payload.data : [];
+            schemaCatalog = {
+                schemas: schemas.map((schema) => String(schema.name || '')),
+                tables: schemas.flatMap((schema) => (schema.tables || []).map((table) => String(table.name || ''))),
+                columns: schemas.flatMap((schema) => (schema.tables || []).flatMap((table) => (table.columns || []).map((col) => String(col || '')))),
+                views: schemas.flatMap((schema) => (schema.views || []).map((view) => String(view || ''))),
+                procedures: schemas.flatMap((schema) => (schema.procedures || []).map((procedure) => String(procedure || ''))),
+                functions: schemas.flatMap((schema) => (schema.functions || []).map((fn) => String(fn || ''))),
+            };
             if (!schemas.length) {
                 schemaTree.innerHTML = '<li>Nenhum schema encontrado.</li>';
                 return;
@@ -827,6 +997,37 @@
         runAllBtn.addEventListener('click', runAll);
 
         sqlEditor.addEventListener('keydown', async (event) => {
+            if (!autocompleteEl.classList.contains('wb-autocomplete--hidden')) {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    autocompleteIndex = Math.min(autocompleteItems.length - 1, autocompleteIndex + 1);
+                    renderAutocomplete();
+                    return;
+                }
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    autocompleteIndex = Math.max(0, autocompleteIndex - 1);
+                    renderAutocomplete();
+                    return;
+                }
+                if (event.key === 'Enter' || event.key === 'Tab') {
+                    event.preventDefault();
+                    applyAutocomplete();
+                    return;
+                }
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    hideAutocomplete();
+                    return;
+                }
+            }
+
+            if (event.ctrlKey && event.key === ' ') {
+                event.preventDefault();
+                updateAutocomplete(true);
+                return;
+            }
+
             if (event.key === 'Tab' && !event.ctrlKey && !event.metaKey && !event.altKey) {
                 event.preventDefault();
 
@@ -876,6 +1077,7 @@
 
                 tabState[activeTab].sql = sqlEditor.value;
                 refreshSqlHighlight();
+                hideAutocomplete();
                 return;
             }
 
@@ -1046,11 +1248,19 @@
         sqlEditor.addEventListener('input', () => {
             tabState[activeTab].sql = sqlEditor.value;
             refreshSqlHighlight();
+            updateAutocomplete();
         });
 
         sqlEditor.addEventListener('scroll', () => {
             sqlHighlight.scrollTop = sqlEditor.scrollTop;
             sqlHighlight.scrollLeft = sqlEditor.scrollLeft;
+            if (!autocompleteEl.classList.contains('wb-autocomplete--hidden')) {
+                renderAutocomplete();
+            }
+        });
+
+        sqlEditor.addEventListener('blur', () => {
+            window.setTimeout(hideAutocomplete, 120);
         });
 
         renderSchemas().catch((error) => {
