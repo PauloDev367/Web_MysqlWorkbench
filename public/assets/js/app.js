@@ -218,16 +218,44 @@
         const renderTabs = () => {
             queryTabs.innerHTML = tabState.map((tab, index) => {
                 const activeClass = index === activeTab ? 'is-active' : '';
-                return `<button class="${activeClass}" data-tab-index="${index}">${tab.title}</button>`;
+                return `
+                    <button class="${activeClass} wb-query-tab" data-tab-index="${index}">
+                        <span class="wb-query-tab__title">${tab.title}</span>
+                        <span class="wb-query-tab__close" data-close-tab-index="${index}" title="Fechar aba">x</span>
+                    </button>
+                `;
             }).join('');
 
-            queryTabs.querySelectorAll('button').forEach((button) => {
+            queryTabs.querySelectorAll('.wb-query-tab').forEach((button) => {
                 button.addEventListener('click', () => {
                     const targetIndex = Number(button.getAttribute('data-tab-index') || '0');
                     tabState[activeTab].sql = sqlEditor.value;
                     activeTab = targetIndex;
                     sqlEditor.value = tabState[activeTab].sql;
                     renderTabs();
+                });
+
+                button.addEventListener('mousedown', (event) => {
+                    if (event.button !== 1) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const targetIndex = Number(button.getAttribute('data-tab-index') || '0');
+                    closeTabAt(targetIndex);
+                });
+            });
+
+            queryTabs.querySelectorAll('.wb-query-tab__close').forEach((closeButton) => {
+                closeButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const target = event.currentTarget;
+                    if (!(target instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    const targetIndex = Number(target.getAttribute('data-close-tab-index') || '0');
+                    closeTabAt(targetIndex);
                 });
             });
         };
@@ -250,6 +278,30 @@
 
             tabState.splice(activeTab, 1);
             activeTab = Math.max(0, activeTab - 1);
+            sqlEditor.value = tabState[activeTab].sql;
+            renderTabs();
+            appendOutput('Tabs', 'Aba fechada.');
+        };
+
+        const closeTabAt = (index) => {
+            if (tabState.length === 1) {
+                appendOutput('Tabs', 'Não é possível fechar a última aba.');
+                return;
+            }
+
+            if (index < 0 || index >= tabState.length) {
+                return;
+            }
+
+            tabState[activeTab].sql = sqlEditor.value;
+            tabState.splice(index, 1);
+
+            if (activeTab > index) {
+                activeTab -= 1;
+            } else if (activeTab === index) {
+                activeTab = Math.max(0, activeTab - 1);
+            }
+
             sqlEditor.value = tabState[activeTab].sql;
             renderTabs();
             appendOutput('Tabs', 'Aba fechada.');

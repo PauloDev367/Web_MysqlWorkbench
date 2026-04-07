@@ -250,6 +250,24 @@ html, body {
     padding: 0 10px;
 }
 .wb-query-tabbar .is-active { background: #3a4050; }
+.wb-query-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.wb-query-tab__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+}
+.wb-query-tab__close:hover {
+    background: #59627a;
+}
 
 .wb-query-toolbar {
     display: flex;
