@@ -13,7 +13,7 @@
 
         <main class="wb-welcome">
             <section class="wb-welcome__hero" data-home-section="overview">
-                <h1>Welcome to MySQL Workbench</h1>
+                <h1>Welcome to MySQL Webbench</h1>
                 <p>
                     Interface para modelagem e consultas SQL. Comece criando uma conexão ou abrindo uma existente.
                 </p>

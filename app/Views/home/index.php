@@ -1,6 +1,6 @@
 <div class="wb-app">
     <header class="wb-topbar">
-        <div class="wb-brand">Web SQL Workbench</div>
+        <div class="wb-brand">MySQL Webbench</div>
         <nav class="wb-tabs">
             <button class="wb-tab wb-tab--active">SQL File 1*</button>
             <button class="wb-tab">+</button>

@@ -10,7 +10,7 @@ final class HomeController extends Controller
     public function index(array $params = []): void
     {
         $this->render('home/welcome', [
-            'title' => 'Web SQL Workbench',
+            'title' => 'MySQL Webbench',
         ]);
     }
 
