@@ -1,0 +1,257 @@
+:root {
+    --wb-bg-dark: #242730;
+    --wb-bg-dark-2: #2b2f3a;
+    --wb-bg-panel: #f2f2f2;
+    --wb-bg-panel-2: #ffffff;
+    --wb-border-light: #d5d8de;
+    --wb-border-dark: #3c404c;
+    --wb-text-dark: #303644;
+    --wb-text-light: #cfd4df;
+    --wb-accent: #3b79b7;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.wb-shell { height: 100vh; }
+
+.wb-menubar {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    background: linear-gradient(#282c36, #1f232d);
+    color: var(--wb-text-light);
+    font-size: 11px;
+    border-bottom: 1px solid #1a1d26;
+}
+
+.wb-layout {
+    height: calc(100vh - 28px);
+    display: grid;
+    grid-template-columns: 48px 1fr;
+}
+
+.wb-left-icons {
+    background: #4a4d54;
+    border-right: 1px solid #3e4148;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-top: 14px;
+}
+
+.wb-icon { opacity: 0.9; font-size: 17px; }
+
+.wb-welcome {
+    background: #f7f7f8;
+    color: #4b5563;
+    padding: 28px 40px;
+}
+
+.wb-welcome__hero { text-align: center; max-width: 760px; margin: 0 auto 46px; }
+.wb-welcome__hero h1 { margin: 0 0 14px; font-size: 56px; color: #505a66; font-weight: 300; }
+.wb-welcome__hero p { margin: 0 0 18px; line-height: 1.6; font-size: 15px; }
+
+.wb-links { display: flex; justify-content: center; gap: 48px; font-size: 14px; }
+.wb-links a { color: #2f86d2; text-decoration: none; }
+
+.wb-connections { max-width: 980px; margin: 0 auto; }
+.wb-connections__header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.wb-connections h2 { margin: 0; font-size: 30px; color: #3a3f48; font-weight: 600; }
+
+.wb-mini-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid #aeb4be; background: #fff; cursor: pointer;
+    font-size: 18px; line-height: 20px;
+}
+
+.wb-conn-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.wb-conn-card {
+    width: 220px;
+    border: 1px solid #d3d8df;
+    background: linear-gradient(#fcfcfc, #f2f4f7);
+    padding: 10px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+.wb-conn-card:hover { border-color: #9db9d6; box-shadow: inset 0 0 0 1px #cadcec; }
+.wb-conn-card h3 { margin: 0 0 8px; font-size: 15px; color: #323843; }
+.wb-conn-card p { margin: 0; font-size: 12px; color: #6b7280; line-height: 1.5; }
+
+.wb-modal { position: fixed; inset: 0; z-index: 30; }
+.wb-modal--hidden { display: none; }
+.wb-modal__backdrop { position: absolute; inset: 0; background: rgba(24, 28, 36, 0.35); }
+.wb-modal__dialog {
+    position: relative;
+    width: min(640px, calc(100% - 40px));
+    margin: 90px auto;
+    background: #252933;
+    color: #d4d8e1;
+    border: 1px solid #3a3f4a;
+    border-radius: 4px;
+    padding: 14px;
+}
+.wb-modal__title { font-size: 13px; margin-bottom: 12px; }
+.wb-form-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+.wb-form-row input {
+    background: #1d2129; color: #d8dbe2; border: 1px solid #3f4552;
+    height: 30px; padding: 4px 8px;
+}
+.wb-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid #343a47;
+    margin-top: 14px;
+    padding-top: 12px;
+}
+.wb-btn {
+    border: 1px solid #4a5060;
+    background: #313744;
+    color: #e5e7eb;
+    height: 30px;
+    padding: 0 12px;
+    cursor: pointer;
+}
+.wb-btn--primary { background: #3f5f86; border-color: #527cad; }
+.wb-btn--ghost { background: #2d313d; }
+
+.wb-editor-layout {
+    height: calc(100vh - 28px);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    background: var(--wb-bg-dark-2);
+}
+
+.wb-nav {
+    border-right: 1px solid var(--wb-border-dark);
+    background: #2c2f39;
+    color: #d5dae4;
+    display: flex;
+    flex-direction: column;
+}
+
+.wb-nav__tabs {
+    height: 32px;
+    display: flex;
+    border-bottom: 1px solid var(--wb-border-dark);
+}
+.wb-nav__tabs button {
+    border: 0;
+    background: #313541;
+    color: #dee3ee;
+    padding: 0 12px;
+    font-size: 11px;
+}
+.wb-nav__tabs .is-active { background: #383d4b; }
+.wb-nav__content { overflow: auto; padding: 8px; font-size: 12px; }
+
+.wb-tree, .wb-tree ul { list-style: none; margin: 0; padding-left: 14px; }
+.wb-tree summary { cursor: pointer; margin: 4px 0; }
+.wb-tree li { margin: 3px 0; }
+
+.wb-editor-main {
+    display: grid;
+    grid-template-rows: 34px 38px 1fr 165px;
+    min-height: 0;
+}
+
+.wb-query-tabbar {
+    display: flex;
+    align-items: end;
+    gap: 2px;
+    border-bottom: 1px solid var(--wb-border-dark);
+    background: #2b2f3a;
+    padding-left: 6px;
+}
+.wb-query-tabbar button {
+    border: 1px solid var(--wb-border-dark);
+    border-bottom: 0;
+    background: #343948;
+    color: #dbe1ed;
+    height: 28px;
+    font-size: 12px;
+    padding: 0 10px;
+}
+.wb-query-tabbar .is-active { background: #3a4050; }
+
+.wb-query-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--wb-border-dark);
+    padding: 0 8px;
+    background: #2f3441;
+}
+.wb-tool-btn {
+    border: 1px solid #4a5161;
+    background: #3a4152;
+    color: #eef2fa;
+    font-size: 12px;
+    height: 26px;
+    padding: 0 10px;
+    cursor: pointer;
+}
+.wb-query-toolbar select {
+    height: 26px; border: 1px solid #4b5262; background: #333948; color: #e7ebf5;
+}
+
+.wb-editor-area {
+    border-bottom: 1px solid var(--wb-border-dark);
+    background: #f3f4f6;
+}
+#sqlEditor {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    resize: none;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 14px;
+    padding: 12px;
+    color: #151515;
+    background: #fbfbfc;
+}
+
+.wb-output {
+    background: #2a2f3a;
+    color: #dce1eb;
+    overflow: auto;
+}
+.wb-output__title {
+    height: 28px;
+    border-bottom: 1px solid var(--wb-border-dark);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 12px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+th, td {
+    border-right: 1px solid #3b4150;
+    border-bottom: 1px solid #3b4150;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+th { color: #aeb6c8; font-weight: 500; }
