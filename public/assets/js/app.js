@@ -501,7 +501,8 @@
                     break;
                 case 'view.toggle-schemas':
                     navPanel.classList.toggle('wb-nav--hidden');
-                    editorLayout.style.gridTemplateColumns = navPanel.classList.contains('wb-nav--hidden') ? '0 1fr' : '280px 1fr';
+                    editorLayout.classList.toggle('wb-editor-layout--schemas-hidden', navPanel.classList.contains('wb-nav--hidden'));
+                    appendOutput('View', navPanel.classList.contains('wb-nav--hidden') ? 'Schemas Panel ocultado.' : 'Schemas Panel exibido.');
                     break;
                 case 'view.toggle-output':
                     outputPanel.classList.toggle('wb-output--hidden');

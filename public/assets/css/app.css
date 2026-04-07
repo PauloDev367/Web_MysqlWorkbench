@@ -185,6 +185,9 @@ html, body {
     grid-template-columns: 280px 1fr;
     background: var(--wb-bg-dark-2);
 }
+.wb-editor-layout--schemas-hidden {
+    grid-template-columns: 0 1fr;
+}
 
 .wb-nav {
     border-right: 1px solid var(--wb-border-dark);
