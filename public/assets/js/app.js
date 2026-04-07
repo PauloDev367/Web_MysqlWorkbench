@@ -335,7 +335,7 @@
         };
 
         const tabState = [
-            { title: 'Query 1', sql: sqlEditor.value },
+            { title: 'Query 1', sql: sqlEditor.value, fileHandle: null, isDirty: false },
         ];
         let activeTab = 0;
         let activeSchema = '';
@@ -476,7 +476,9 @@
             sqlEditor.selectionStart = nextPos;
             sqlEditor.selectionEnd = nextPos;
             tabState[activeTab].sql = sqlEditor.value;
+            tabState[activeTab].isDirty = true;
             refreshSqlHighlight();
+            renderTabs();
             hideAutocomplete();
         };
 
@@ -528,10 +530,13 @@
         const renderTabs = () => {
             queryTabs.innerHTML = tabState.map((tab, index) => {
                 const activeClass = index === activeTab ? 'is-active' : '';
+                const statusIndicator = tab.isDirty
+                    ? '<span class="wb-query-tab__dirty" title="Alterações não salvas">●</span>'
+                    : `<span class="wb-query-tab__close" data-close-tab-index="${index}" title="Fechar aba">x</span>`;
                 return `
                     <button class="${activeClass} wb-query-tab" data-tab-index="${index}">
                         <span class="wb-query-tab__title">${tab.title}</span>
-                        <span class="wb-query-tab__close" data-close-tab-index="${index}" title="Fechar aba">x</span>
+                        ${statusIndicator}
                     </button>
                 `;
             }).join('');
@@ -574,7 +579,7 @@
         const createNewTab = () => {
             tabState[activeTab].sql = sqlEditor.value;
             const nextIndex = tabState.length + 1;
-            tabState.push({ title: `Query ${nextIndex}`, sql: '' });
+            tabState.push({ title: `Query ${nextIndex}`, sql: '', fileHandle: null, isDirty: false });
             activeTab = tabState.length - 1;
             sqlEditor.value = '';
             refreshSqlHighlight();
@@ -722,6 +727,86 @@
             hideConnectionError();
             renderResultGrid(payload.columns || [], payload.rows || []);
             appendOutput(action, `${payload.message} (${payload.duration_ms} ms)`);
+        };
+
+        const supportsFileSystemAccess = () => (
+            typeof window.showOpenFilePicker === 'function'
+            && typeof window.showSaveFilePicker === 'function'
+        );
+
+        const openScriptFromFileSystem = async () => {
+            if (!supportsFileSystemAccess()) {
+                sqlFileInput.click();
+                appendOutput('File', 'Navegador sem File System Access API. Usando modo legado.');
+                return;
+            }
+
+            const [handle] = await window.showOpenFilePicker({
+                multiple: false,
+                types: [{
+                    description: 'SQL files',
+                    accept: {
+                        'text/sql': ['.sql'],
+                        'text/plain': ['.txt'],
+                    },
+                }],
+            });
+            if (!handle) {
+                return;
+            }
+
+            const file = await handle.getFile();
+            const content = await file.text();
+            const title = file.name.replace(/\.(sql|txt)$/i, '') || tabState[activeTab].title;
+            sqlEditor.value = content;
+            tabState[activeTab].sql = content;
+            tabState[activeTab].title = title;
+            tabState[activeTab].fileHandle = handle;
+            tabState[activeTab].isDirty = false;
+            refreshSqlHighlight();
+            renderTabs();
+            appendOutput('File', `Arquivo local aberto: ${file.name}`);
+        };
+
+        const saveScriptToFileSystem = async () => {
+            const content = sqlEditor.value;
+            let handle = tabState[activeTab].fileHandle;
+
+            if (!supportsFileSystemAccess()) {
+                const blob = new Blob([content], { type: 'text/sql;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${tabState[activeTab].title.replace(/\s+/g, '_').toLowerCase()}.sql`;
+                document.body.append(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(link.href);
+                appendOutput('File', 'Navegador sem API local. Script exportado por download.');
+                return;
+            }
+
+            if (!handle) {
+                handle = await window.showSaveFilePicker({
+                    suggestedName: `${tabState[activeTab].title.replace(/\s+/g, '_') || 'query'}.sql`,
+                    types: [{
+                        description: 'SQL files',
+                        accept: { 'text/sql': ['.sql'] },
+                    }],
+                });
+                if (!handle) {
+                    return;
+                }
+                tabState[activeTab].fileHandle = handle;
+            }
+
+            const writable = await handle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            const handleName = handle.name || tabState[activeTab].title;
+            tabState[activeTab].title = handleName.replace(/\.(sql|txt)$/i, '') || tabState[activeTab].title;
+            tabState[activeTab].isDirty = false;
+            renderTabs();
+            appendOutput('File', `Arquivo salvo localmente: ${handleName}`);
         };
 
         const renderSchemas = async () => {
@@ -997,6 +1082,20 @@
         runAllBtn.addEventListener('click', runAll);
 
         sqlEditor.addEventListener('keydown', async (event) => {
+            if (event.ctrlKey && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                try {
+                    await saveScriptToFileSystem();
+                } catch (error) {
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        appendOutput('File', 'Salvamento cancelado.');
+                        return;
+                    }
+                    throw error;
+                }
+                return;
+            }
+
             if (!autocompleteEl.classList.contains('wb-autocomplete--hidden')) {
                 if (event.key === 'ArrowDown') {
                     event.preventDefault();
@@ -1076,8 +1175,10 @@
                 }
 
                 tabState[activeTab].sql = sqlEditor.value;
+                tabState[activeTab].isDirty = true;
                 refreshSqlHighlight();
                 hideAutocomplete();
+                renderTabs();
                 return;
             }
 
@@ -1149,19 +1250,26 @@
                     window.location.href = '/';
                     break;
                 case 'file.open-script':
-                    sqlFileInput.click();
+                    try {
+                        await openScriptFromFileSystem();
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            appendOutput('File', 'Abertura de arquivo cancelada.');
+                            break;
+                        }
+                        throw error;
+                    }
                     break;
                 case 'file.save-script': {
-                    const content = sqlEditor.value;
-                    const blob = new Blob([content], { type: 'text/sql;charset=utf-8' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `${tabState[activeTab].title.replace(/\s+/g, '_').toLowerCase()}.sql`;
-                    document.body.append(link);
-                    link.click();
-                    link.remove();
-                    URL.revokeObjectURL(link.href);
-                    appendOutput('File', 'Script exportado.');
+                    try {
+                        await saveScriptToFileSystem();
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            appendOutput('File', 'Salvamento cancelado.');
+                            break;
+                        }
+                        throw error;
+                    }
                     break;
                 }
                 case 'edit.undo':
@@ -1177,7 +1285,9 @@
                 case 'edit.clear-editor':
                     sqlEditor.value = '';
                     tabState[activeTab].sql = '';
+                    tabState[activeTab].isDirty = true;
                     refreshSqlHighlight();
+                    renderTabs();
                     appendOutput('Edit', 'Editor limpo.');
                     break;
                 case 'view.toggle-schemas':
@@ -1239,6 +1349,8 @@
             sqlEditor.value = content;
             tabState[activeTab].sql = content;
             tabState[activeTab].title = file.name.replace(/\.(sql|txt)$/i, '') || tabState[activeTab].title;
+            tabState[activeTab].fileHandle = null;
+            tabState[activeTab].isDirty = false;
             refreshSqlHighlight();
             renderTabs();
             appendOutput('File', `Script ${file.name} carregado.`);
@@ -1247,8 +1359,10 @@
 
         sqlEditor.addEventListener('input', () => {
             tabState[activeTab].sql = sqlEditor.value;
+            tabState[activeTab].isDirty = true;
             refreshSqlHighlight();
             updateAutocomplete();
+            renderTabs();
         });
 
         sqlEditor.addEventListener('scroll', () => {

@@ -450,6 +450,11 @@ html, body {
 .wb-query-tab__close:hover {
     background: #59627a;
 }
+.wb-query-tab__dirty {
+    color: #facc15;
+    font-size: 11px;
+    line-height: 1;
+}
 
 .wb-query-toolbar {
     grid-row: 3;
