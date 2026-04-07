@@ -80,4 +80,11 @@ final class ConnectionRepository
 
         return (int) $this->pdo->lastInsertId();
     }
+
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM connections WHERE id = :id');
+        $stmt->execute(['id' => $id]);
+        return $stmt->rowCount() > 0;
+    }
 }

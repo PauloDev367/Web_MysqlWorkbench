@@ -41,12 +41,48 @@
                     <h3>${conn.name}</h3>
                     <p>${conn.username}</p>
                     <p>${conn.host}:${conn.port}</p>
+                    <p style="margin-top:8px;">
+                        <button class="wb-btn" data-action="test">Test</button>
+                        <button class="wb-btn wb-btn--ghost" data-action="delete">Delete</button>
+                    </p>
                 </article>
             `).join('');
 
             grid.querySelectorAll('.wb-conn-card').forEach((card) => {
-                card.addEventListener('click', () => {
+                card.addEventListener('click', (event) => {
+                    const target = event.target;
+                    if (!(target instanceof HTMLElement)) {
+                        return;
+                    }
+
                     const connectionId = card.getAttribute('data-connection-id') || '0';
+                    const action = target.getAttribute('data-action');
+                    if (action === 'delete') {
+                        event.stopPropagation();
+                        fetch(`/api/connections/${connectionId}`, { method: 'DELETE' })
+                            .then(parseResponse)
+                            .then(() => renderConnections())
+                            .catch((error) => {
+                                const message = error instanceof Error ? error.message : 'Falha ao excluir conexão.';
+                                alert(message);
+                            });
+                        return;
+                    }
+
+                    if (action === 'test') {
+                        event.stopPropagation();
+                        fetch(`/api/connections/${connectionId}/test`, { method: 'POST' })
+                            .then(parseResponse)
+                            .then((result) => {
+                                alert(result.message || 'Conexão testada.');
+                            })
+                            .catch((error) => {
+                                const message = error instanceof Error ? error.message : 'Falha ao testar conexão.';
+                                alert(message);
+                            });
+                        return;
+                    }
+
                     const connectionName = card.getAttribute('data-connection-name') || 'Localhost';
                     window.location.href = `/sql-editor?connection_id=${encodeURIComponent(connectionId)}&connection=${encodeURIComponent(connectionName)}`;
                 });
@@ -128,8 +164,11 @@
         const schemaTree = document.getElementById('schemaTree');
         const resultGridHead = document.getElementById('resultGridHead');
         const resultGridRows = document.getElementById('resultGridRows');
+        const queryTabs = document.getElementById('queryTabs');
+        const newTabBtn = document.getElementById('newTabBtn');
+        const closeTabBtn = document.getElementById('closeTabBtn');
 
-        if (!menubar || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows) {
+        if (!menubar || !sqlEditor || !runSelectedBtn || !runAllBtn || !outputRows || !schemaTree || !resultGridHead || !resultGridRows || !queryTabs || !newTabBtn || !closeTabBtn) {
             return;
         }
 
@@ -165,6 +204,51 @@
                 <tr>${columns.map((column) => `<td>${row[column] ?? ''}</td>`).join('')}</tr>
             `).join('');
         };
+
+        const tabState = [
+            { title: 'Query 1', sql: sqlEditor.value },
+        ];
+        let activeTab = 0;
+
+        const renderTabs = () => {
+            queryTabs.innerHTML = tabState.map((tab, index) => {
+                const activeClass = index === activeTab ? 'is-active' : '';
+                return `<button class="${activeClass}" data-tab-index="${index}">${tab.title}</button>`;
+            }).join('');
+
+            queryTabs.querySelectorAll('button').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const targetIndex = Number(button.getAttribute('data-tab-index') || '0');
+                    tabState[activeTab].sql = sqlEditor.value;
+                    activeTab = targetIndex;
+                    sqlEditor.value = tabState[activeTab].sql;
+                    renderTabs();
+                });
+            });
+        };
+
+        newTabBtn.addEventListener('click', () => {
+            tabState[activeTab].sql = sqlEditor.value;
+            const nextIndex = tabState.length + 1;
+            tabState.push({ title: `Query ${nextIndex}`, sql: '' });
+            activeTab = tabState.length - 1;
+            sqlEditor.value = '';
+            renderTabs();
+            appendOutput('Tabs', `Nova aba Query ${nextIndex} criada.`);
+        });
+
+        closeTabBtn.addEventListener('click', () => {
+            if (tabState.length === 1) {
+                appendOutput('Tabs', 'Não é possível fechar a última aba.');
+                return;
+            }
+
+            tabState.splice(activeTab, 1);
+            activeTab = Math.max(0, activeTab - 1);
+            sqlEditor.value = tabState[activeTab].sql;
+            renderTabs();
+            appendOutput('Tabs', 'Aba fechada.');
+        });
 
         const executeSql = async (action, sql) => {
             const response = await fetch('/api/sql/execute', {
@@ -243,6 +327,7 @@
             const message = error instanceof Error ? error.message : 'Falha ao carregar schemas.';
             appendOutput('Load Schemas', message);
         });
+        renderTabs();
     };
 
     setupWelcomeScreen();

@@ -16,7 +16,9 @@
 
         <section class="wb-editor-main">
             <div class="wb-query-tabbar">
-                <button class="is-active">Query 1</button>
+                <div id="queryTabs" class="wb-query-tabs"></div>
+                <button id="newTabBtn">+</button>
+                <button id="closeTabBtn">x</button>
             </div>
             <div class="wb-query-toolbar">
                 <button id="runSelectedBtn" class="wb-tool-btn">⚡ Executar Selecionado</button>

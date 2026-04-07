@@ -15,4 +15,7 @@ return [
         '/api/connections/test-temporary' => ['controller' => ConnectionController::class, 'action' => 'testTemporary'],
         '/api/sql/execute' => ['controller' => SqlController::class, 'action' => 'execute'],
     ],
+    'DELETE' => [
+        '/api/connections/{id}' => ['controller' => ConnectionController::class, 'action' => 'destroy'],
+    ],
 ];

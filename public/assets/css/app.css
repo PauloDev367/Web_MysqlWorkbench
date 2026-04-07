@@ -181,6 +181,12 @@ html, body {
     background: #2b2f3a;
     padding-left: 6px;
 }
+.wb-query-tabs {
+    display: flex;
+    align-items: end;
+    gap: 2px;
+    margin-right: 4px;
+}
 .wb-query-tabbar button {
     border: 1px solid var(--wb-border-dark);
     border-bottom: 0;

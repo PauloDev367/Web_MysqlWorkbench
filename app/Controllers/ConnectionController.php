@@ -108,6 +108,26 @@ final class ConnectionController extends Controller
     }
 
     /**
+     * @param array<string, string> $params
+     */
+    public function destroy(array $params = []): void
+    {
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0) {
+            $this->json(['error' => 'ID da conexão inválido.'], 422);
+            return;
+        }
+
+        $deleted = $this->repository->delete($id);
+        if (!$deleted) {
+            $this->json(['error' => 'Conexão não encontrada.'], 404);
+            return;
+        }
+
+        $this->json(['success' => true, 'message' => 'Conexão removida com sucesso.']);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function requestJson(): array
